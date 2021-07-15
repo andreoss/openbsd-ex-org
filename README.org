@@ -1,0 +1,1240 @@
+#+TITLE: OpenBSD Ex Org
+#+AUTHOR: andreoss
+#+EMAIL: andreoss@sdf.org
+#+LANGUAGE: en
+#+KEYWORDS: openbsd emacs org-mode
+#+PROPERTY: header-args :eval yes :noweb yes eval :exports both :cache no
+#+PROPERTY: header-args:shell+ :shebang (a/host) :results verbatim
+#+HTML_HEAD: <style> body { background-color: #ffffea; } </style>
+#+LINK_UP:
+#+LINK_HOME: index.html
+
+* Overview
+
+This document is aimed to provide an enviroment for building a bootable OpenBSD system image, using QEMU and Org. The entire process can be automated and reproducible.
+The result image will be bootable on UEFI machines.
+
+It's possible to build an entire system automatically by "publishing" this document:
+#+begin_src shell :eval no
+  emacs README.org --batch -l init.el -f org-html-export-to-html --kill
+#+end_src
+
+* Prerequisites
+The main requirements are QEMU, Expect & GNU Emacs.
+Pass is used to managed passwords, and can be changed to something else (i.e literals) in the macros below.
+
+** System dependencies
+|--------+----------+---|
+| emacs  | >= 27.2  |   |
+| qemu   | >= 6.0.0 |   |
+| expect | >= 1.1   |   |
+| bash   |          |   |
+| pass   |          |   |
+
+*** On Nix
+See [[file:default.nix][default.nix]]
+#+begin_src nix tange: default.nix
+  // TODO
+#+end_src
+
+*** Current versions
+#+name: emacs-version
+#+BEGIN_SRC emacs-lisp
+  (emacs-version)
+#+END_SRC
+#+name: qemu-version
+#+BEGIN_SRC shell
+  qemu-kvm --version
+#+END_SRC
+#+name: expect-version
+#+BEGIN_SRC shell
+  expect -version
+#+END_SRC
+
+** Lisp Macros & Functions
+
+*** Macros
+#+name: macros
+#+begin_src emacs-lisp
+  (defmacro a/is-system? (sys)
+    "Which is the host system?. "
+    `(if (eq system-type ',sys) "yes" "no"))
+  (defmacro a/host       ()
+    "Shebang for scripts executed on host. "
+    `(concat "#!" default-directory "host-shell"))
+  (defmacro a/guest      ()
+    "Shebang for scripts executed on guest. "
+    `(concat "#!" default-directory "guest-shell"))
+  (defmacro a/sudo      (&optional xs)
+    "Directory for executing as root. XS is sub directories. "
+    `(concat "/sudo::/" default-directory ,@xs))
+  (defmacro a/remote (&rest args)
+    `(save-excursion
+       (let (
+          (user (a/ref "user-name"))
+          (port (a/ref "ssh-port")))
+      (concat (format "/ssh:%s@localhost#%d:" user port) ,@args))))
+  (defmacro a/remote-sudo (&rest args)
+    (let (
+          (user (a/ref "user-name"))
+          (port (a/ref "ssh-port")))
+      (concat (format "/ssh:%s@localhost#%d|sudo:" user port) args)))
+  (defmacro a/ref (name)
+    `(save-excursion
+      (org-babel-goto-named-src-block "macros")
+      (org-babel-execute-src-block
+       nil
+       (org-babel-lob-get-info
+        (list 'babel-call
+              (list :call "ref-unquoted" :arguments (concat "'" ,name)))))))
+
+#+end_src
+
+#+RESULTS: macros
+: 7922
+
+*** Remove all result blocks
+Clean up this document from all /result/ blocks.
+#+BEGIN_SRC elisp
+  (defun a/ob-clear-all-results ()
+    "Clear all results in the buffer."
+    (interactive)
+    (save-excursion
+      (goto-char (point-min))
+      (while (org-babel-next-src-block)
+        (org-babel-remove-result))))
+#+END_SRC
+*** Rotate old log.
+#+name: rotate-log
+#+begin_src shell
+  «log»
+  if [ -e "$LOG" ]
+  then
+      mv --verbose --force "$LOG" "${LOG//.log}$(date +%s).log"
+  fi
+#+end_src
+
+** Tcl scripts
+:PROPERTIES:
+:header-args: :eval no :noweb yes no-export
+:END:
+*** Connect to serial port (via telnet).
+#+name: serial
+#+begin_src tcl
+  log_user 0
+  spawn telnet localhost «ref('serial-port)»
+  log_user 1
+#+end_src
+*** Set com0 as the main tty
+Executed in the bootloader.
+#+begin_src shell  :tangle set-tty :shebang "#!/usr/bin/env expect"
+  «serial»
+  «timeout»
+  expect "boot>"
+  send "stty com0 115200\r"
+  expect "boot>"
+  sleep 1
+  send "set tty com0\r"
+  expect "boot>"
+  sleep 1
+  send "boot\r\r\r"
+  sleep 1
+  expect "\r"
+  exit
+#+end_src
+
+*** Timeouts
+**** Disable timeout
+#+name: notimeout
+#+begin_src tcl
+  set timeout -1
+#+end_src
+**** Enable timeout
+#+name: timeout
+#+begin_src tcl
+  set timeout 10
+#+end_src
+*** Start interactive shell.
+#+begin_src shell :tangle start-shell :shebang "#!/usr/bin/env expect"
+  «serial»
+  «notimeout»
+  expect "(I)nstall, (U)pgrade, (A)utoinstall or (S)hell?" { send "S\r" }
+  expect "# "
+#+end_src
+
+*** Execute guest shell command (after interactive was started).
+Execute a shell command
+#+begin_src shell :tangle execute :shebang "#!/usr/bin/env expect"
+  log_user 0
+  set command [lindex $argv 0];
+  «serial»
+  send "\r"
+  expect "# "
+  log_user 1
+  send "$command\r"
+  sleep 1
+  expect "# "
+#+end_src
+
+To be used in shebang.
+#+begin_src shell :tangle guest-shell
+  ./execute "$(sed 1d "$1")"
+#+end_src
+
+** Installation media
+*** Download installation image
+#+name: download
+#+begin_src shell
+  wget --continue «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
+       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
+       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
+#+end_src
+
+*** Verify SHA256
+**** On GNU/Linux (verify SHA256)
+#+name: verify
+#+begin_src shell :eval (a/is-system? gnu/linux)
+  sha256sum --ignore-missing --check SHA256
+#+end_src
+
+**** On OpenBSD
+#+begin_src shell :eval (a/is-system? openbsd)
+  signify -C -x SHA256.sig «ref("install-image")»
+#+end_src
+
+*** Patch installation image in order to enable serial port (Optional)
+Less bug-prone than set-tty script.
+:PROPERTIES:
+:header-args:+ :export none :eval no :results verbatim
+:END:
+**** On GNU/Linux
+:PROPERTIES:
+:header-args: :eval no
+:END:
+
+Make sure that UFS can be mounted with RW permissions.
+For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot.nix]]:
+#+begin_src nix
+  boot.kernelPatches = [
+    {
+      name = "ufs-rw-support";
+      patch = null;
+      extraConfig = "UFS_FS_WRITE y";
+    }
+  ];
+#+end_src
+
+#+name: ufs-check
+#+begin_src shell
+  zgrep UFS_FS /proc/config.gz
+#+end_src
+
+#+begin_src shell :dir (a/sudo)
+  losetup --partscan /dev/loop0 install69.img
+#+end_src
+
+#+begin_src shell :dir (a/sudo)
+  sfdisk -l /dev/loop0
+#+end_src
+
+#+begin_src shell :dir (a/sudo)
+  mkdir -p /tmp/install
+  mount -t ufs -o ufstype=44bsd,rw /dev/loop0p4 /tmp/install
+#+end_src
+
+#+begin_src shell :dir (a/sudo)
+  echo "stty com0 115200" >> /tmp/install/etc/boot.conf
+  echo "set tty com0"     >> /tmp/install/etc/boot.conf
+#+end_src
+
+#+begin_src shell :dir (a/sudo)
+  umount /tmp/install
+  losetup --detach-all
+#+end_src
+
+**** TODO On OpenBSD
+[[https://unix.stackexchange.com/questions/656910/how-to-change-the-installation-image-to-use-com-as-default-console][Discussion on SO]].
+:PROPERTIES:
+:header-args: :eval (a/is-system? 'openbsd)
+:END:
+
+** Emacs configuration
+*** Startup
+**** Run when file is being opened
+#+name: startup
+#+BEGIN_SRC emacs-lisp
+  (require 'ob-shell)
+  (require 'ob-eshell)
+  (setq org-babel-eval-verbose nil)
+  «macros»
+#+END_SRC
+
+#+RESULTS: startup
+: a/ref
+
+**** ANSI Colors in output
+#+BEGIN_SRC elisp
+  (defun a/babel-ansi-color-apply ()
+    (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
+      (save-excursion
+        (goto-char beg)
+        (when (looking-at org-babel-result-regexp)
+          (let ((end (org-babel-result-end))
+                (ansi-color-context-region nil))
+            (ansi-color-apply-on-region beg end))))))
+  (add-hook 'org-babel-after-execute-hook 'a/babel-ansi-color-apply)
+#+END_SRC
+
+**** Shell wrapper to capture logs
+Define debug log.
+#+name: log
+#+begin_src shell
+  LOG=${LOG:-output.log}
+#+end_src
+#+name: host-shell
+#+begin_src shell :tangle host-shell :shebang "#!/bin/bash" :eval no
+  «log»
+  if [ "$LOG" ]
+  then
+      exec 1> >(tee -a "$LOG") 2> >(tee -a "$LOG" >&2)
+  fi
+  exec "$SHELL" "$@" </dev/stdin
+#+end_src
+
+*** Reference parameter from the table below
+
+#+NAME: ref-unquoted
+#+BEGIN_SRC emacs-lisp :var  name="" table=references
+  (let ((key (if (symbolp name) (symbol-name name) name)))
+    (nth 2 (assoc key table)))
+#+END_SRC
+
+#+RESULTS: ref-unquoted
+: 7922
+
+Same as above, but quoted
+#+NAME: ref
+#+CALL: ref-unquoted() :results verbatim :var name="" table=references
+
+* Parameters
+The following table is to parameterize the system.
+
+** Options
+#+NAME: references
+| Reference     | Description         | Value                               |
+|---------------+---------------------+-------------------------------------|
+| hostname      | Hostname            | puffy                               |
+| domain        | Domain              | cx                                  |
+| volume-size   | Volume size         | 16000M                              |
+|---------------+---------------------+-------------------------------------|
+| time-zone     | Timezone            | America/New_York                    |
+| root-password | Root's password     | toor                                |
+|---------------+---------------------+-------------------------------------|
+| serial-port   | Tty Port            | 1234                                |
+| monitor-port  | Monitor Port        | 1233                                |
+| ssh-port      | Ssh Port            | 7922                                |
+|---------------+---------------------+-------------------------------------|
+| arch          | Architecure         | amd64                               |
+| release       | Release             | 6.9                                 |
+| install-image | Installation image  | install69.img                       |
+| system-image  | Result image        | system69.img                        |
+| image-format  | Result image format | raw                                 |
+|               | (qcow2 or raw)      |                                     |
+| mirror        | Mirror              | https://cdn.openbsd.org/pub/OpenBSD |
+|---------------+---------------------+-------------------------------------|
+| user-name     | Regular user name   | a                                   |
+| user-id       | Id                  | 1337                                |
+| user-group    | Primary group       | staff                               |
+| user-shell    | Shell of user       | bash                                |
+
+** Password
+#+name: pass-show
+#+begin_src emacs-lisp :var name=""
+  (if (not (string-empty-p name))
+      (string-trim
+       (shell-command-to-string
+        (concat "pass show" " " (a/ref "hostname") "/" name))))
+#+end_src
+
+#+RESULTS: pass-show
+: puffy
+
+#+name: pass-gen
+#+begin_src emacs-lisp :var name="" length="8"
+  (if (not (string-empty-p name))
+      (string-trim
+       (shell-command-to-string
+        (concat "pass generate --no-symbols " (a/ref "hostname") "/" name " " length))))
+#+end_src
+
+* Qemu
+** Setup UEFI Bios
+*** UEFI Bios image
+Installing [[https://github.com/tianocore/tianocore.github.io/wiki/OVMF][UEFI Bios]] for QEMU. This BIOS does not support CD, this is why we are using a disk image.
+#+begin_src shell :eval yes
+  wget --continue https://packages.slackonly.com/pub/packages/14.2-x86_64/system/ovmf/ovmf-20171116-noarch-1_slonly.txz
+#+end_src
+
+#+begin_src shell :eval yes
+  tar  -C ./bios -xvf ovmf*txz --strip-components=2
+#+end_src
+
+** Prepare image
+*** Main volume
+#+name: Create main volume
+#+begin_src shell
+  qemu-img create -f «ref("image-format")» «ref("system-image")» «ref("volume-size")»
+#+end_src
+
+* Start Qemu
+** Script to control VM
+:PROPERTIES:
+:header-args:shell: :tangle vm :eval never :tangle-mode (identity #o755) :shebang "#!/bin/bash"
+:END:
+Wait until port is open:
+#+begin_src shell
+  waitport() {
+      while ! nc -z localhost "${1:?no argument}" ; do true; done
+  }
+#+end_src
+
+#+begin_src shell
+  QEMU_MEM=512m
+  QEMU_CPU=host
+  QEMU_PID=.pid
+  QEMU_COMMAND=qemu-kvm
+  QEMU_MON_PORT=«ref("monitor-port")»
+  QEMU_SER_PORT=«ref("serial-port")»
+  QEMU_SYSTEM_DRIVE=(
+      -device scsi-hd,drive=hd0
+      -drive file=«ref("system-image")»,media=disk,snapshot=off,if=none,id=hd0,format=«ref("image-format")»
+  )
+  QEMU_INSTALL_DRIVE=(
+      -drive file=«ref("install-image")»,media=disk,format=raw
+  )
+  QEMU_KEY_DRIVE=(
+      -device scsi-hd,drive=hd1
+      -drive file=key.raw,media=disk,snapshot=off,if=none,id=hd1,format=raw
+  )
+  QEMU_MONITOR=(
+      -monitor chardev:mon0
+      -chardev socket,id=mon0,server=on,wait=off,telnet=on,port=$QEMU_MON_PORT,host=localhost,ipv4=on,ipv6=off
+  )
+  QEMU_SERIAL=(
+      -serial chardev:ser0
+      -chardev socket,id=ser0,server=on,wait=on,telnet=on,port=$QEMU_SER_PORT,host=localhost,ipv4=on,ipv6=off
+  )
+  QEMU_NETWORK=(
+      -netdev user,id=mn0,hostfwd=tcp:127.0.0.1:«ref("ssh-port")»-:22
+      -device virtio-net,netdev=mn0
+  )
+  QEMU_OPTS=(
+      -m "$QEMU_MEM"
+      -cpu "$QEMU_CPU"
+      -bios bios/ovmf-x64/OVMF-pure-efi.fd
+      -device virtio-scsi-pci,id=scsi
+  )
+  QEMU_OPTS+=("${QEMU_NETWORK[@]}")
+  QEMU_OPTS+=("${QEMU_MONITOR[@]}")
+  QEMU_OPTS+=("${QEMU_SERIAL[@]}")
+  QEMU_OPTS+=("${QEMU_SYSTEM_DRIVE[@]}")
+  if [ "${USE_KEYDISK:-0}" -eq "1" ]
+  then
+      QEMU_OPTS+=("${QEMU_KEY_DRIVE[@]}")
+  fi
+  if [ "${USE_INSTALL:-1}" -eq "1" ]
+  then
+      QEMU_OPTS+=("${QEMU_INSTALL_DRIVE[@]}")
+  fi
+  if [ "${USE_GRAPHIC:-0}" -eq "0" ]
+  then
+      QEMU_OPTS+=(-nographic)
+  fi
+  case "${1:?no arg}" in
+      start)
+          [ -e "$QEMU_PID" ] && >&2 echo "Already running" && exit 1
+          (
+              setsid "$QEMU_COMMAND" "${QEMU_OPTS[@]}" < /dev/null 2>/dev/null > /dev/null & disown
+              PID=$!
+              echo "$PID" > "$QEMU_PID"
+          ) &
+          waitport "$QEMU_MON_PORT"
+          waitport "$QEMU_SER_PORT"
+          ;;
+      status)
+          if [ ! -e "$QEMU_PID" ]
+          then
+              >&2 echo "Not running"
+              exit 1
+          fi
+          PID="$(< "$QEMU_PID")"
+          if kill -0 "$PID" >/dev/null 2>/dev/null
+          then
+              >&2 echo "Running: $PID"
+          else
+              >&2 echo "Stopped: $PID"
+              exit 1
+          fi
+          ;;
+      stop)
+          [ -e "$QEMU_PID" ] && xargs kill < "$QEMU_PID"
+          rm --force "$QEMU_PID"
+          ;;
+      restart)
+          "$0" stop
+          "$0" start
+          ;;
+  esac
+#+end_src
+
+** Start QEMU & set TTY to com0
+**START HERE**
+Stop VM:
+#+NAME: stop-qemu
+#+begin_src shell :results none
+  ./vm stop
+#+end_src
+Start VM:
+#+NAME: start-qemu
+#+begin_src shell
+  ./vm start
+  ./set-tty
+#+end_src
+
+* Instalation
+** Start interactive shell
+#+NAME: Start shell
+#+begin_src shell
+  ./start-shell
+#+end_src
+
+** Check available disks (sd0 & wd0 should present)
+
+#+name: Check disks 1
+#+begin_src shell :shebang (a/guest)
+  sysctl hw.disknames
+#+end_src
+
+You should see the target image being attached as sd0.
+#+name: Check disks 2
+#+begin_src shell :shebang (a/guest)
+  dmesg | grep sd[0-9]
+#+end_src
+
+Installation media should be available as wd0 (if installing from img file)
+#+name: Check disks 3
+#+begin_src shell :shebang (a/guest)
+  dmesg | grep wd[0-9]
+#+end_src
+
+NOTE: ...
+
+** Prepare disk
+*** Create devices for sd0 and sd1
+#+name: Create device nodes
+#+begin_src shell :shebang (a/guest)
+  cd /dev
+  sh MAKEDEV sd0
+  sh MAKEDEV sd1
+  sh MAKEDEV sd2
+  ls sd*
+#+end_src
+
+*** Remove disk content
+#+name: Shred existing GPT
+#+begin_src shell :shebang (a/guest)
+  dd if=/dev/zero of=/dev/rsd0c bs=1m count=100
+#+end_src
+
+#+RESULTS:
+:
+: #
+: # dd if=/dev/zero of=/dev/rsd0c bs=1m count=100
+: 100+0 records in
+: 100+0 records out
+: 104857600 bytes transferred in 0.525 secs (199539933 bytes/sec)
+
+*** Run fdisk
+#+name: Fdisk on sd0
+#+begin_src shell :shebang (a/guest)
+  fdisk -iy -g -b 960 sd0
+#+end_src
+
+The same for keydisk (Optional)
+#+name: Fdisk on sd1
+#+begin_src shell :shebang (a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no")
+  fdisk -iy -g -b 960 sd1
+#+end_src
+
+*** Disklabel
+Create one RAID partition using entire disk space.
+#+name: Disklabel on sd0
+#+begin_src shell :shebang (a/guest)
+  {
+      echo a a;
+      echo ;
+      echo ;
+      echo RAID;
+      echo w;
+      echo q;
+  } | disklabel -E sd0
+  disklabel sd0
+#+end_src
+
+
+Prepare keydisk (Optional)
+#+name: Disklabel on sd1
+#+begin_src shell :shebang (a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
+  {
+      echo a a;
+      echo ;
+      echo ;
+      echo RAID;
+      echo w;
+      echo q;
+  } | disklabel -E sd1
+  disklabel sd1
+#+end_src
+*** Create [[https://man.openbsd.org/bioctl][bioctl(8)]] Crypto RAID
+
+**** Put passphase in a file
+NOTE: New line at EOF is required.
+#+name: pass-file
+#+begin_src shell :shebang (a/guest)
+  echo «pass-show("bioctl")» | tee /tmp/.passphrase
+#+end_src
+
+#+begin_src shell :shebang (a/guest)
+  chmod 0600 /tmp/.passphrase
+  ls -l /tmp/.passphrase
+#+end_src
+
+Initialize RAID on sd0
+#+name: bioctl-passphrase
+#+begin_src shell :shebang (a/guest)
+  bioctl -p /tmp/.passphrase -c C -l sd0a softraid0
+#+end_src
+
+
+Using keydisk (Optional)
+#+name: bioctl-keydisk
+#+begin_src shell :shebang (a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
+  bioctl -k sd1a -c C -l sd0a softraid0
+#+end_src
+
+** Main setup
+*** Setup dialog
+:PROPERTIES:
+:header-args: :eval no :noweb yes :tangle setup-dialog
+:END:
+
+Send ^D and press enter.
+#+begin_src tcl :shebang "#!/usr/bin/env expect"
+  «serial»
+  send "\x04"
+  send "\r"
+#+end_src
+
+#+begin_src tcl
+  expect "(I)nstall, (U)pgrade, (A)utoinstall or (S)hell?" { send "I\r" }
+#+end_src
+
+#+begin_src tcl
+  expect "Terminal type?" { send "vt220\r" }
+#+end_src
+
+#+begin_src tcl
+  expect "System hostname?" { send «ref("hostname")»; send "\r"  }
+#+end_src
+
+Do not configure network interfaces.
+#+begin_src tcl
+  expect "Which network interface do you wish to configure?" {
+      send "done\r"
+  }
+#+end_src
+
+No more interfaces to configure.
+#+begin_src tcl
+  expect "Which network interface do you wish to configure?" {
+      send "\r"
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "Default IPv4 route?" {
+      send "none\r"
+  }
+#+end_src
+
+DNS Domain name.
+#+begin_src tcl
+  expect "DNS domain name?" {
+      send «ref("domain")»;
+      send "\r";
+  }
+#+end_src
+DNS Domain name.
+#+begin_src tcl
+  expect "DNS nameservers?" {
+      send "1.1.1.1\r";
+  }
+#+end_src
+
+Root password.
+#+begin_src tcl
+  expect "Password for root account? (will not echo)" {
+      send «ref("root-password")»
+      send "\r"
+  }
+  expect "Password for root account? (again)" {
+      send «ref("root-password")»
+      send "\r"
+  }
+#+end_src
+
+Do not start sshd(8) by default yet. Will be enabled later.
+#+begin_src tcl
+  expect "Start sshd(8) by default?" {
+      send "no\r"
+  }
+#+end_src
+
+Do not start xenodm(1) by default yet. Will be enabled later.
+#+begin_src tcl
+  expect "Do you want the X Window System to be started by xenodm(1)?" {
+      send "no\r"
+  }
+#+end_src
+
+Keep COM0 available after reboot to the freshly installed system.
+Will be disabled after sshd(8) is enabled.
+#+begin_src tcl
+  expect "Change the default console to com0?" {
+      send "yes\r"
+      expect "Which speed should com0 use?" {
+          send "115200\r"
+      }
+  }
+#+end_src
+
+No need to add a user at this step.
+#+begin_src tcl
+  expect "Setup a user?" {
+      send "no\r"
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "Allow root ssh login?" {
+      send "no\r"
+  }
+#+end_src
+
+
+#+begin_src tcl
+  expect "Which disk is the root disk?" {
+      send "sd1\r"
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "Use (W)hole disk MBR, whole disk (G)PT" {
+      send "gpt\r"
+  }
+#+end_src
+
+Use automatic layout, which produces different results depending on volume size.
+#+begin_src tcl
+  expect "Use (A)uto layout, (E)dit auto layout, or create (C)ustom layout?" {
+      send "a\r"
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "Which disk do you wish to initialize?" {
+      send "done\r"
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "Location of sets?" {
+      send "disk\r"
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "Is the disk partition already mounted?" {
+      send "no\r"
+  }
+#+end_src
+
+Install from `wd0`, which is USB installation media.
+#+begin_src tcl
+  expect "Which disk contains the install media?" {
+      send "wd0\r"
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "Which wd0 partition has the install sets?" {
+      send "a\r"
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "Pathname to the sets?" {
+      send "\r"
+  }
+#+end_src
+
+Install everything but games.
+#+begin_src tcl
+  expect "Set name(s)?" {
+      send -- "-game*\r\r"
+  }
+#+end_src
+
+There is no SHA256.sig on the installation drive.
+This step will triger installation, thus "notimeout".
+#+begin_src tcl
+  expect "Directory does not contain SHA256.sig. Continue without verification?" {
+      send "yes\r"
+      «notimeout»
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "Location of sets? (disk http nfs or 'done')" {
+      send "done\r"
+  }
+#+end_src
+
+#+begin_src tcl
+  expect "What timezone are you in?" {
+      send «ref("time-zone")»;
+      send "\r";
+  }
+#+end_src
+
+Not ready to reboot yet. Go back to the shell to install UEFI.
+#+begin_src tcl
+  expect "Exit to (S)hell, (H)alt or (R)eboot?" {
+      send "S\r"
+      expect "#"
+  }
+#+end_src
+
+*** Start setup
+#+name: Start setup dialog
+#+begin_src shell
+  ./setup-dialog
+#+end_src
+
+** Install UEFI Boot Loader
+*** Mount partition & copy EFI
+#+name: Format UEFI Parition
+#+begin_src shell :shebang (a/guest)
+  newfs_msdos /dev/sd0i
+#+end_src
+
+#+name: Mount & copy boot loader
+#+begin_src shell :eval no
+  ./start-shell
+#+end_src
+
+#+begin_src shell :shebang (a/guest)
+  mount /dev/sd0i /mnt2
+  cp /mnt/usr/mdec/BOOTX64.EFI /mnt2/efi/boot/
+  umount /dev/sd0i
+#+end_src
+
+** Reboot
+#+name: reboot after install
+#+begin_src shell :shebang (a/guest)
+  halt
+#+end_src
+
+** Stop VM
+#+name: stop vm
+#+begin_src shell
+  sleep 5
+  ./vm stop
+#+end_src
+
+* Login into the new system
+Start VM without the installation media, and type cryptodisk password:
+#+name: start-vm
+#+begin_src shell
+  ./vm stop
+  USE_INSTALL=0 ./vm start
+  ./type-password «pass-show("bioctl")»
+#+end_src
+
+Login as root via COM
+#+name: login-as-root
+#+begin_src shell
+  ./login root «ref("root-password")»
+#+end_src
+
+* Post-install (Serial)
+** Tcl scripts
+:PROPERTIES:
+:header-args: :eval no :noweb yes
+:END:
+*** Crypto-disk password
+#+begin_src shell :tangle type-password :shebang "#!/usr/bin/env expect"
+  «notimeout»
+  «serial»
+  set password [lindex $argv 0];
+  expect "Passphrase: " { send "$password\r" }
+
+  expect "boot>"        { send "\r"          }
+#+end_src
+
+*** Login via tty0
+#+begin_src shell :tangle login :shebang "#!/usr/bin/env expect"
+  «notimeout»
+  «serial»
+  set user     [lindex $argv 0];
+  set password [lindex $argv 1];
+  send "\r\r\r"
+  expect "login:"
+  send "$user\r"
+  sleep 1
+  expect ":"
+  send "$password\r"
+  expect "# "
+  sleep 1
+#+end_src
+
+** Add a normal user
+*** Tcl script
+:PROPERTIES:
+:header-args: :tangle adduser :noweb yes :eval no
+:END:
+#+begin_src tcl :shebang "#!/usr/bin/env expect" :tangle-mode (identity #o755)
+  «serial»
+  send   "\r"
+  expect "# "
+  send   "adduser\r"
+#+end_src
+
+If /etc/adduser.conf doesn't exits...
+#+begin_src tcl
+  expect "Couldn't find /etc/adduser.conf" {
+      expect "Enter your default shell:"                { send "ksh\r"; }
+      expect "Default login class:"                     { send "default\r"}
+      expect "Enter your default HOME partition:"       { send "/home\r"; }
+      expect "Copy dotfiles from:"                      { send "/etc/skel\r"; }
+      expect "Send welcome message?"                    { send "no\r"; }
+      expect "Prompt for passwords by default"          { send "no\r"; }
+      expect "Default encryption method for passwords:" { send "blowfish\r" }
+  }
+#+end_src
+New user
+#+begin_src tcl
+  expect "Enter username"             { send «ref('user-name)» ; send "\r" }
+  expect "Enter full name"            { send "\r" }
+  expect "Enter shell"                { send "ksh\r" }
+  expect "Uid"                        { send «ref('user-id)» ; send "\r" }
+  expect "Login group"                { send «ref('user-group)» ; send "\r" }
+  expect "Invite a into other groups" { send "no\r" }
+  expect "Login class"                { send "default\r" }
+  expect "OK?"                        { send "y\r" }
+  expect "Add another user?"          { send "n\r" }
+  expect "# "
+#+end_src
+
+*** Add user
+    #+name: add-user
+#+begin_src shell
+  ./adduser
+#+end_src
+
+*** Configure [[https://man.openbsd.org/doas.8][doas(8)]]
+Disable password promt for staff group.
+See [[https://man.openbsd.org/doas.conf.5][doas.conf(5)]]
+
+#+name: Doas configuration
+#+begin_src shell :shebang (a/guest)
+  echo permit nopass :«ref("user-group")»| tee /etc/doas.conf
+#+end_src
+
+** Configure SSH
+Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
+*** Backup original config
+    #+name: backup-sshd_config
+#+begin_src shell :shebang (a/guest)
+  cp /etc/ssh/sshd_config{,.orig}
+#+end_src
+
+*** Disable banner
+#+name: configure-sshd-1
+#+begin_src shell :shebang (a/guest)
+  perl -i -pE 's/[#]?(Banner)                 \s+ \S+/$1 none/x' /etc/ssh/sshd_config
+  perl -i -pE 's/[#]?(PrintMotd)              \s+ \S+/$1 no/x' /etc/ssh/sshd_config
+#+end_src
+
+*** Disable/enable X11 Forwading
+#+name: configure-sshd-2
+#+begin_src shell :shebang (a/guest)
+  perl -i -pE 's/[#]?(X11Forwarding)          \s+ \S+/$1 yes/x' /etc/ssh/sshd_config
+#+end_src
+
+*** Disable password authentication & root login
+    #+name: configure-sshd33
+#+begin_src shell :shebang (a/guest)
+  perl -i -pE 's/[#]?(PasswordAuthentication) \s+ \S+/$1 no/x' /etc/ssh/sshd_config
+  perl -i -pE 's/[#]?(PermitRootLogin)        \s+ \S+/$1 no/x' /etc/ssh/sshd_config
+#+end_src
+
+*** Enable [[https://man.openbsd.org/sshd][sshd(8)]]
+#+name: Enable sshd
+#+begin_src shell :shebang (a/guest)
+  rcctl enable sshd
+  rcctl restart sshd
+#+end_src
+
+*** Add RSA key
+#+name: ssh-key
+#+begin_src emacs-lisp
+  (string-trim (shell-command-to-string "ssh-add -L"))
+#+end_src
+
+#+name: add-ssh-key
+#+begin_src shell :shebang (a/guest)
+  echo «ssh-key()» | doas -u a tee /home/a/.ssh/authorized_keys
+#+end_src
+
+#+RESULTS:
+:
+: puffy#
+: puffy# echo "The agent has no identities." | doas -u a tee /home/a/.ssh/author| doas -u a tee /home/a/.ssh/author                                           <ized_keys
+: The agent has no identities.
+: puffy#
+
+*** Enable network
+**** Use rcctl & /etc/hostname.vio0 instead of dhclient
+#+name: Enable sshd
+#+begin_src shell :shebang (a/guest)
+  {
+      echo "-inet6"
+      echo "dhcp"
+      echo "up"
+  } | tee /etc/hostname.vio0
+#+end_src
+
+#+RESULTS:
+#+begin_example
+puffy#
+puffy# {
+>     echo "-inet6"
+>     echo "dhcp"
+>     echo "up"
+> } | tee /etc/hostname.vio0
+-inet6
+dhcp
+up
+puffy#
+#+end_example
+
+#+name: netstart
+#+begin_src shell :shebang (a/guest)
+  sh /etc/netstart
+#+end_src
+
+#+name: temporary-dns
+#+begin_src shell :shebang (a/guest)
+  perl -i -pE 's/(nameserver) \s+ \S+/$1 8.8.8.8/x' /etc/resolv.conf
+#+end_src
+
+#+RESULTS:
+: puffy#
+: puffy# perl -i -pE 's/(nameserver) \s+ \S+/$1 8.8.8.8/x' /etc/resolv.conf
+: puffy#
+
+*** Add fingerprint to [[~/.ssh/known_hosts][known_hosts]]
+#+name: ssh-keyscan
+#+begin_src shell :shebang (a/host)
+  ssh-keyscan -p «ref("ssh-port")» -H localhost | tee -a ~/.ssh/known_hosts
+#+end_src
+
+* Post-install (SSH)
+:PROPERTIES:
+:header-args: :dir (a/remote)
+:END:
+** Configure sudo
+Tramp does not support [[https://man.openbsd.org/doas][doas(8)]].
+Let's install & configure sudo with the same permissions as doas.
+
+#+name: install-sudo
+#+call: pkg_add("sudo--")
+
+#+name: sudoers
+#+begin_src shell :var group=(a/ref "user-group")
+  echo "%$group ALL=(ALL) NOPASSWD: SETENV: ALL" | doas tee /etc/sudoers
+#+end_src
+
+** Update firmware
+#+name: firmware
+#+begin_src shell
+  doas fw_update -a
+#+end_src
+
+* Configuration
+:PROPERTIES:
+:dir: (a/remote)
+:header-args: :session *configuration*
+:END:
+** Install packages
+Unlock database in case it's locked (see pkg_check(8)).
+
+#+name: pkg_check
+#+begin_src shell
+  doas pkg_check -f
+#+end_src
+
+Install a package (see pkg_add(8)).
+#+name: pkg_add
+#+begin_src shell :var name=""
+  doas pkg_add -x -r "$name"
+#+end_src
+
+*** Emacs
+#+call: pkg_add("git")
+
+#+call: pkg_add("emacs--gtk3")
+
+#+call: pkg_add("gtar--static")
+
+#+call: pkg_add("coreutils")
+
+#+call: pkg_add("wget")
+
+*** Firefox
+#+call: pkg_add("firefox")
+
+#+call: pkg_add("mpv")
+
+#+call: pkg_add("youtube-dl")
+
+#+begin_src shell
+  doas cp /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js{,.back}
+  ftp https://raw.githubusercontent.com/pyllyukko/user.js/master/user.js
+  grep -v captive-portal user.js | doas tee -a /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js >/dev/null
+  ftp https://gist.githubusercontent.com/andreoss/91a0d21dc99bd9eae8bce5d573fb5a00/raw/64d0926caf60103efab55ea4cc4150d5d86b369a/ua.js
+  cat ua.js | doas tee -a /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js
+  doas sed -i s/user_pref/pref/ /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js
+  rm *.js
+#+end_src
+
+** Switch to prefered shell (i.e Bash)
+
+#+call: pkg_add("bash")
+
+#+begin_src shell :var XSHELL=ref-unquoted("user-shell")
+  chsh -s `which $XSHELL`
+#+end_src
+
+*** Switch back to Korn Shell
+#+begin_src shell
+  chsh -s "/bin/ksh"
+#+end_src
+
+** Enable apmd
+~-A~ :: enables performance adjustment mode
+~-Z 5~ :: hibernate at 5% battery life
+See [[https://man.openbsd.org/apmd][apmd(8)]].
+#+begin_src shell
+  doas rcctl enable apmd
+  doas rcctl set apmd flags -A -Z 5
+  doas rcctl start apmd
+  doas rcctl check apmd
+#+end_src
+
+** Readline
+#+begin_src fundamental :no_tangle /ssh:a@localhost#7922:~/.inputrc
+  $include  /etc/inputrc
+  set bell-style visible
+
+  set blink-matching-paren on
+  set visible-stats        on
+
+  $if mode=vi
+
+  set editing-mode vi
+  set keymap       vi
+  set vi-cmd-mode-string "*"
+  set vi-ins-mode-string " "
+  set show-mode-in-prompt on
+
+  Control-l: clear-screen
+
+  set keymap vi-command
+  Control-l: clear-screen
+
+  set keymap vi-insert
+  Control-l: clear-screen
+
+  $endif
+
+  set emacs-mode-string  "&"
+#+end_src
+
+** DNS Crypt Proxy
+
+#+call: pkg_add("dnscrypt-proxy--")
+
+
+*** Enable and start service
+#+begin_src shell
+  doas rcctl enable dnscrypt_proxy
+  doas rcctl start dnscrypt_proxy
+  doas rcctl check dnscrypt_proxy
+#+end_src
+
+*** Configure dhclient
+See ~man dhclient.conf~.
+#+begin_src shell
+  echo "supersede domain-name-servers 127.0.0.1;" | doas tee /etc/dhclient.conf
+#+end_src
+
+Restart network
+#+begin_src shell
+  doas sh /etc/netstart
+#+end_src
+
+
+Now resolv.conf should contain local DNS server
+#+begin_src shell
+  grep nameserver /etc/resolv.conf
+#+end_src
+
+** Enable X11
+
+#+name: enable-xenodm
+#+begin_src shell
+  doas rcctl enable xenodm
+  doas rcctl start xenodm
+  doas rcctl check xenodm
+#+end_src
+
+** Install StumpWM
+#+call: pkg_add("stumpwm")
+#+begin_src shell
+echo "exec stumpwm" | tee ~/.xsession | wc -l
+#+end_src
+
+
+* COMMENT Buffer settings
+Same as [[file:init.el][init.el]]
+It's impossible to use tangling here.
+
+# Local Variables:
+# org-babel-noweb-wrap-start: "«"
+# org-babel-noweb-wrap-end: "»"
+# org-confirm-babel-evaluate: nil
+# eval: (require 'ob-shell)
+# eval: (progn (org-babel-goto-named-src-block "startup") (org-babel-execute-src-block) (outline-hide-sublevels 1))
+# End:

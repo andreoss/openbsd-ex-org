@@ -12,9 +12,10 @@
 * Overview
 
 This document is aimed to provide an enviroment for building a bootable OpenBSD system image, using QEMU and Org. The entire process can be automated and reproducible.
-The result image will be bootable on UEFI machines.
+The result image will be partitioned with [[https://en.wikipedia.org/wiki/GUID_Partition_Table][GPT]] and bootable on [[https://en.wikipedia.org/wiki/Unified_Extensible_Firmware_Interface][UEFI]] machines.
 
 It's possible to build an entire system automatically by "publishing" this document:
+
 #+begin_src shell :eval no
   emacs README.org --batch -l init.el -f org-html-export-to-html --kill
 #+end_src
@@ -23,13 +24,13 @@ It's possible to build an entire system automatically by "publishing" this docum
 The main requirements are QEMU, Expect & GNU Emacs.
 Pass is used to managed passwords, and can be changed to something else (i.e literals) in the macros below.
 
-** System dependencies
-|--------+----------+---|
-| emacs  | >= 27.2  |   |
-| qemu   | >= 6.0.0 |   |
-| expect | >= 1.1   |   |
-| bash   |          |   |
-| pass   |          |   |
+** Dependencies
+|--------+----------|
+| emacs  | >= 27.2  |
+| qemu   | >= 6.0.0 |
+| expect | >= 1.1   |
+| bash   |          |
+| pass   |          |
 
 *** On Nix
 See [[file:default.nix][default.nix]]
@@ -54,6 +55,15 @@ See [[file:default.nix][default.nix]]
 ** Lisp Macros & Functions
 
 *** Macros
+This macros are needed to provide dynamic values in `header-args`.
+
+For example:
+#+begin_example
+#+begin_src shell :eval (a/is-system? openbsd)
+zzz
+#+end_src
+#+end_example
+
 #+name: macros
 #+begin_src emacs-lisp
   (defmacro a/is-system? (sys)
@@ -104,7 +114,8 @@ Clean up this document from all /result/ blocks.
       (while (org-babel-next-src-block)
         (org-babel-remove-result))))
 #+END_SRC
-*** Rotate old log.
+
+*** Rotate old log
 #+name: rotate-log
 #+begin_src shell
   «log»
@@ -114,7 +125,7 @@ Clean up this document from all /result/ blocks.
   fi
 #+end_src
 
-** Tcl scripts
+** Expect scripts
 :PROPERTIES:
 :header-args: :eval no :noweb yes no-export
 :END:
@@ -126,7 +137,7 @@ Clean up this document from all /result/ blocks.
   log_user 1
 #+end_src
 *** Set com0 as the main tty
-Executed in the bootloader.
+Executed during boot of install.img
 #+begin_src shell  :tangle set-tty :shebang "#!/usr/bin/env expect"
   «serial»
   «timeout»
@@ -163,7 +174,7 @@ Executed in the bootloader.
 #+end_src
 
 *** Execute guest shell command (after interactive was started).
-Execute a shell command
+Execute a shell command via COM.
 #+begin_src shell :tangle execute :shebang "#!/usr/bin/env expect"
   log_user 0
   set command [lindex $argv 0];
@@ -176,7 +187,7 @@ Execute a shell command
   expect "# "
 #+end_src
 
-To be used in shebang.
+A wrapper for the script above to use it as part of shebang.
 #+begin_src shell :tangle guest-shell
   ./execute "$(sed 1d "$1")"
 #+end_src
@@ -184,13 +195,20 @@ To be used in shebang.
 ** Installation media
 *** Download installation image
 #+name: download
-#+begin_src shell
+#+begin_src shell :eval (a/is-system? gnu/linux)
   wget --continue «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
 #+end_src
 
+#+begin_src shell :eval (a/is-system? openbsd)
+  ftp  «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
+       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
+       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
+#+end_src
+
 *** Verify SHA256
+NOTE: The installation image is mutable, the checksum most likely won't match after the first boot.
 **** On GNU/Linux (verify SHA256)
 #+name: verify
 #+begin_src shell :eval (a/is-system? gnu/linux)
@@ -202,7 +220,7 @@ To be used in shebang.
   signify -C -x SHA256.sig «ref("install-image")»
 #+end_src
 
-*** Patch installation image in order to enable serial port (Optional)
+*** (Optional) Patch installation image in order to enable serial port
 Less bug-prone than set-tty script.
 :PROPERTIES:
 :header-args:+ :export none :eval no :results verbatim
@@ -261,6 +279,7 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 ** Emacs configuration
 *** Startup
 **** Run when file is being opened
+This block is executed via [[Buffer settings]] & [[file:init.el]].
 #+name: startup
 #+BEGIN_SRC emacs-lisp
   (require 'ob-shell)
@@ -268,9 +287,6 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
   (setq org-babel-eval-verbose nil)
   «macros»
 #+END_SRC
-
-#+RESULTS: startup
-: a/ref
 
 **** ANSI Colors in output
 #+BEGIN_SRC elisp
@@ -286,7 +302,8 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 #+END_SRC
 
 **** Shell wrapper to capture logs
-Define debug log.
+This is useful for debugging.
+All code with this shebang will log its stderr & stdout to ~$LOG~.
 #+name: log
 #+begin_src shell
   LOG=${LOG:-output.log}
@@ -302,52 +319,59 @@ Define debug log.
 #+end_src
 
 *** Reference parameter from the table below
-
+Reference a value from [[Parameters]].
 #+NAME: ref-unquoted
 #+BEGIN_SRC emacs-lisp :var  name="" table=references
   (let ((key (if (symbolp name) (symbol-name name) name)))
     (nth 2 (assoc key table)))
 #+END_SRC
 
-#+RESULTS: ref-unquoted
-: 7922
-
-Same as above, but quoted
 #+NAME: ref
 #+CALL: ref-unquoted() :results verbatim :var name="" table=references
+
+#+begin_example
+#+begin_src
+echo «ref("user-name")»
+#+end_src
+#+end_example
+
 
 * Parameters
 The following table is to parameterize the system.
 
 ** Options
 #+NAME: references
-| Reference     | Description         | Value                               |
-|---------------+---------------------+-------------------------------------|
-| hostname      | Hostname            | puffy                               |
-| domain        | Domain              | cx                                  |
-| volume-size   | Volume size         | 16000M                              |
-|---------------+---------------------+-------------------------------------|
-| time-zone     | Timezone            | America/New_York                    |
-| root-password | Root's password     | toor                                |
-|---------------+---------------------+-------------------------------------|
-| serial-port   | Tty Port            | 1234                                |
-| monitor-port  | Monitor Port        | 1233                                |
-| ssh-port      | Ssh Port            | 7922                                |
-|---------------+---------------------+-------------------------------------|
-| arch          | Architecure         | amd64                               |
-| release       | Release             | 6.9                                 |
-| install-image | Installation image  | install69.img                       |
-| system-image  | Result image        | system69.img                        |
-| image-format  | Result image format | raw                                 |
-|               | (qcow2 or raw)      |                                     |
-| mirror        | Mirror              | https://cdn.openbsd.org/pub/OpenBSD |
-|---------------+---------------------+-------------------------------------|
-| user-name     | Regular user name   | a                                   |
-| user-id       | Id                  | 1337                                |
-| user-group    | Primary group       | staff                               |
-| user-shell    | Shell of user       | bash                                |
+| Reference     | Description              | Value                               |
+|---------------+--------------------------+-------------------------------------|
+| hostname      | Hostname                 | puffy                               |
+| domain        | Domain                   | cx                                  |
+| volume-size   | Volume size              | 16000M                              |
+|---------------+--------------------------+-------------------------------------|
+| time-zone     | Timezone                 | America/New_York                    |
+| root-password | Root's password          | toor                                |
+|---------------+--------------------------+-------------------------------------|
+| serial-port   | Tty Port                 | 1234                                |
+| monitor-port  | Monitor Port             | 1233                                |
+| ssh-port      | Ssh Port                 | 7922                                |
+|---------------+--------------------------+-------------------------------------|
+| arch          | Architecure (only amd64) | amd64                               |
+| release       | Release                  | 6.9                                 |
+| install-image | Installation image       | install69.img                       |
+| system-image  | Result image             | system69.img                        |
+| image-format  | Result image format      | raw                                 |
+|               | (qcow2 or raw)           |                                     |
+| mirror        | Mirror                   | https://cdn.openbsd.org/pub/OpenBSD |
+|---------------+--------------------------+-------------------------------------|
+| user-name     | Regular user name        | a                                   |
+| user-id       | Id                       | 1337                                |
+| user-group    | Primary group            | staff                               |
+| user-shell    | Shell of user            | bash                                |
 
 ** Password
+
+The password for SoftRAID is generated by [[https://www.passwordstore.org/][pass]].
+
+Show password:
 #+name: pass-show
 #+begin_src emacs-lisp :var name=""
   (if (not (string-empty-p name))
@@ -356,9 +380,7 @@ The following table is to parameterize the system.
         (concat "pass show" " " (a/ref "hostname") "/" name))))
 #+end_src
 
-#+RESULTS: pass-show
-: puffy
-
+Generate password:
 #+name: pass-gen
 #+begin_src emacs-lisp :var name="" length="8"
   (if (not (string-empty-p name))
@@ -370,12 +392,14 @@ The following table is to parameterize the system.
 * Qemu
 ** Setup UEFI Bios
 *** UEFI Bios image
-Installing [[https://github.com/tianocore/tianocore.github.io/wiki/OVMF][UEFI Bios]] for QEMU. This BIOS does not support CD, this is why we are using a disk image.
-#+begin_src shell :eval yes
+Installing [[https://github.com/tianocore/tianocore.github.io/wiki/OVMF][UEFI Bios]] for QEMU.
+This BIOS does not support CD, this is why we are using a USB image.
+
+#+begin_src shell
   wget --continue https://packages.slackonly.com/pub/packages/14.2-x86_64/system/ovmf/ovmf-20171116-noarch-1_slonly.txz
 #+end_src
 
-#+begin_src shell :eval yes
+#+begin_src shell
   tar  -C ./bios -xvf ovmf*txz --strip-components=2
 #+end_src
 
@@ -397,37 +421,61 @@ Wait until port is open:
       while ! nc -z localhost "${1:?no argument}" ; do true; done
   }
 #+end_src
-
 #+begin_src shell
   QEMU_MEM=512m
   QEMU_CPU=host
   QEMU_PID=.pid
   QEMU_COMMAND=qemu-kvm
+#+end_src
+Ports for Monitor and Serial console:
+#+begin_src shell
   QEMU_MON_PORT=«ref("monitor-port")»
   QEMU_SER_PORT=«ref("serial-port")»
+#+end_src
+
+QEMU arguments:
+System drive:
+#+begin_src shell
   QEMU_SYSTEM_DRIVE=(
       -device scsi-hd,drive=hd0
       -drive file=«ref("system-image")»,media=disk,snapshot=off,if=none,id=hd0,format=«ref("image-format")»
   )
+#+end_src
+Installation drive:
+#+begin_src shell
   QEMU_INSTALL_DRIVE=(
       -drive file=«ref("install-image")»,media=disk,format=raw
   )
+#+end_src
+Key-disk drive:
+#+begin_src shell
   QEMU_KEY_DRIVE=(
       -device scsi-hd,drive=hd1
       -drive file=key.raw,media=disk,snapshot=off,if=none,id=hd1,format=raw
   )
+#+end_src
+Monitor device:
+#+begin_src shell
   QEMU_MONITOR=(
       -monitor chardev:mon0
       -chardev socket,id=mon0,server=on,wait=off,telnet=on,port=$QEMU_MON_PORT,host=localhost,ipv4=on,ipv6=off
   )
+#+end_src
+Serial device:
+#+begin_src shell
   QEMU_SERIAL=(
       -serial chardev:ser0
       -chardev socket,id=ser0,server=on,wait=on,telnet=on,port=$QEMU_SER_PORT,host=localhost,ipv4=on,ipv6=off
   )
+#+end_src
+Network with port forwarding:
+#+begin_src shell
   QEMU_NETWORK=(
       -netdev user,id=mn0,hostfwd=tcp:127.0.0.1:«ref("ssh-port")»-:22
       -device virtio-net,netdev=mn0
   )
+#+end_src
+#+begin_src shell
   QEMU_OPTS=(
       -m "$QEMU_MEM"
       -cpu "$QEMU_CPU"
@@ -488,12 +536,13 @@ Wait until port is open:
 #+end_src
 
 ** Start QEMU & set TTY to com0
-**START HERE**
+
 Stop VM:
 #+NAME: stop-qemu
 #+begin_src shell :results none
   ./vm stop
 #+end_src
+
 Start VM:
 #+NAME: start-qemu
 #+begin_src shell
@@ -509,25 +558,22 @@ Start VM:
 #+end_src
 
 ** Check available disks (sd0 & wd0 should present)
-
-#+name: Check disks 1
+Print names of available disks:
+#+name: check-disknames
 #+begin_src shell :shebang (a/guest)
   sysctl hw.disknames
 #+end_src
-
-You should see the target image being attached as sd0.
+You should see the target image being attached as ~sd0~.
 #+name: Check disks 2
 #+begin_src shell :shebang (a/guest)
   dmesg | grep sd[0-9]
 #+end_src
 
-Installation media should be available as wd0 (if installing from img file)
+Installation media should be available as ~wd0~ (if installing from img file)
 #+name: Check disks 3
 #+begin_src shell :shebang (a/guest)
   dmesg | grep wd[0-9]
 #+end_src
-
-NOTE: ...
 
 ** Prepare disk
 *** Create devices for sd0 and sd1

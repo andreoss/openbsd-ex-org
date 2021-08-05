@@ -1223,7 +1223,14 @@ Now resolv.conf should contain local DNS server
   grep nameserver /etc/resolv.conf
 #+end_src
 
-** Enable X11
+** Configure X11
+
+*** Autologin
+#+begin_src shell :noweb yes
+echo "DisplayManager.*.autoLogin: «ref('user-name)»" | doas tee -a /etc/X11/xenodm/xenodm-config
+#+end_src
+
+*** Enable
 
 #+name: enable-xenodm
 #+begin_src shell

@@ -277,7 +277,7 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 ** Emacs configuration
 *** Startup
 **** Run when file is being opened
-This block is executed via [[Buffer settings]] & [[file:init.el]].
+This block is executed via ~Buffer settings~ & [[file:init.el]].
 #+name: startup
 #+BEGIN_SRC emacs-lisp
   (require 'ob-shell)

@@ -1108,6 +1108,8 @@ Install a package (see pkg_add(8)).
 #+name: pkg_add
 #+begin_src shell :var name=""
   doas pkg_add -x -r "$name"
+#+begin_src shell :var NAME=""
+  [ "$NAME" ] && doas pkg_add -x -r "$NAME"
 #+end_src
 
 *** Emacs

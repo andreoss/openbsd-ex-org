@@ -1114,6 +1114,8 @@ Install a package (see pkg_add(8)).
 *** Emacs
 #+call: pkg_add("git")
 
+#+call: pkg_add("gnupg")
+
 #+call: pkg_add("emacs--gtk3")
 
 #+call: pkg_add("gtar--static")

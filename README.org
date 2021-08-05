@@ -1245,7 +1245,7 @@ It's impossible to use tangling here.
 
 # Local Variables:
 # org-babel-noweb-wrap-start: "«"
-# org-babel-noweb-wrap-end: "»"
+# org-babel-noweb-wrap-end:   "»"
 # org-confirm-babel-evaluate: nil
 # eval: (require 'ob-shell)
 # eval: (progn (org-babel-goto-named-src-block "startup") (org-babel-execute-src-block) (outline-hide-sublevels 1))

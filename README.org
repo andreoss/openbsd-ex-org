@@ -590,13 +590,6 @@ Installation media should be available as ~wd0~ (if installing from img file)
   dd if=/dev/zero of=/dev/rsd0c bs=1m count=100
 #+end_src
 
-#+RESULTS:
-:
-: #
-: # dd if=/dev/zero of=/dev/rsd0c bs=1m count=100
-: 100+0 records in
-: 100+0 records out
-: 104857600 bytes transferred in 0.525 secs (199539933 bytes/sec)
 
 *** Run fdisk
 #+name: Fdisk on sd0

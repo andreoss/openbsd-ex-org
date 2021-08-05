@@ -1156,8 +1156,8 @@ Install a package (see pkg_add(8)).
 #+end_src
 
 ** Enable apmd
-~-A~ :: enables performance adjustment mode
-~-Z 5~ :: hibernate at 5% battery life
+- ~-A~ :: enables performance adjustment mode
+- ~-Z 5~ :: hibernate at 5% battery life
 See [[https://man.openbsd.org/apmd][apmd(8)]].
 #+begin_src shell
   doas rcctl enable apmd

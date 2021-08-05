@@ -1150,7 +1150,7 @@ Install a package (see pkg_add(8)).
 #+end_src
 
 *** Switch back to Korn Shell
-#+begin_src shell
+#+begin_src shell :eval no
   chsh -s "/bin/ksh"
 #+end_src
 

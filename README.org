@@ -925,7 +925,6 @@ Login as root via COM
   «serial»
   set password [lindex $argv 0];
   expect "Passphrase: " { send "$password\r" }
-
   expect "boot>"        { send "\r"          }
 #+end_src
 
@@ -984,7 +983,7 @@ New user
 #+end_src
 
 *** Add user
-    #+name: add-user
+#+name: add-user
 #+begin_src shell
   ./adduser
 #+end_src
@@ -1044,13 +1043,6 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
   echo «ssh-key()» | doas -u a tee /home/a/.ssh/authorized_keys
 #+end_src
 
-#+RESULTS:
-:
-: puffy#
-: puffy# echo "The agent has no identities." | doas -u a tee /home/a/.ssh/author| doas -u a tee /home/a/.ssh/author                                           <ized_keys
-: The agent has no identities.
-: puffy#
-
 *** Enable network
 **** Use rcctl & /etc/hostname.vio0 instead of dhclient
 #+name: Enable sshd
@@ -1062,20 +1054,6 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
   } | tee /etc/hostname.vio0
 #+end_src
 
-#+RESULTS:
-#+begin_example
-puffy#
-puffy# {
->     echo "-inet6"
->     echo "dhcp"
->     echo "up"
-> } | tee /etc/hostname.vio0
--inet6
-dhcp
-up
-puffy#
-#+end_example
-
 #+name: netstart
 #+begin_src shell :shebang (a/guest)
   sh /etc/netstart
@@ -1085,11 +1063,6 @@ puffy#
 #+begin_src shell :shebang (a/guest)
   perl -i -pE 's/(nameserver) \s+ \S+/$1 8.8.8.8/x' /etc/resolv.conf
 #+end_src
-
-#+RESULTS:
-: puffy#
-: puffy# perl -i -pE 's/(nameserver) \s+ \S+/$1 8.8.8.8/x' /etc/resolv.conf
-: puffy#
 
 *** Add fingerprint to [[~/.ssh/known_hosts][known_hosts]]
 #+name: ssh-keyscan

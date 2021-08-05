@@ -1072,7 +1072,7 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 
 * Post-install (SSH)
 :PROPERTIES:
-:header-args: :dir (a/remote)
+:header-args: :dir (a/remote) :session *post-install*
 :END:
 ** Configure sudo
 Tramp does not support [[https://man.openbsd.org/doas][doas(8)]].

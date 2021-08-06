@@ -168,6 +168,7 @@ Executed during boot of install.img
 #+begin_src shell :tangle start-shell :shebang "#!/usr/bin/env expect"
   «serial»
   «notimeout»
+  send "\r";
   expect "(I)nstall, (U)pgrade, (A)utoinstall or (S)hell?" { send "S\r" }
   expect "# "
 #+end_src

@@ -795,16 +795,31 @@ NOTE: New line at EOF is required.
   echo «pass-show("bioctl")» > /tmp/.passphrase
 #+end_src
 
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "-rw-------" block))
   chmod 0600 /tmp/.passphrase
   ls -l /tmp/.passphrase
 #+end_src
 
 Initialize RAID on sd0
 #+name: bioctl-passphrase
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "softraid0:" block))
   bioctl -p /tmp/.passphrase -c C -l sd0a softraid0
 #+end_src
+
+#+RESULTS: bioctl-passphrase
+#+begin_example
+
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+
+#
+#
+# bioctl -p /tmp/.passphrase -c C -l sd0a softraid0
+softraid0: chunk sd0a already in use
+softraid0: chunk sd0a already in use
+#
+#+end_example
 
 
 Using keydisk (Optional)
@@ -1017,15 +1032,16 @@ Not ready to reboot yet. Go back to the shell to install UEFI.
 #+end_src
 
 *** Start setup
-#+name: Start setup dialog
-#+begin_src shell
+#+name: setup-dialog
+#+begin_src shell :post assert!(*this*, '(a/contains? "CONGRATULATIONS!" block))
   ./setup-dialog
 #+end_src
 
 ** Install UEFI Boot Loader
 *** Mount partition & copy EFI
 #+name: Format UEFI Parition
-#+begin_src shell :shebang (a/guest)
+#+name: format-uefi-partition
+#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "block device" block))
   newfs_msdos /dev/sd0i
 #+end_src
 

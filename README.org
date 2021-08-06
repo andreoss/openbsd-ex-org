@@ -416,8 +416,8 @@ This BIOS does not support CD, this is why we are using a USB image.
 
 ** Prepare image
 *** Main volume
-#+name: Create main volume
-#+begin_src shell
+#+name: qemu-img
+#+begin_src shell :post assert!(*this*, '(a/contains? "Formatting" block))
   qemu-img create -f «ref("image-format")» «ref("system-image")» «ref("volume-size")»
 #+end_src
 

@@ -806,7 +806,6 @@ Initialize RAID on sd0
   bioctl -p /tmp/.passphrase -c C -l sd0a softraid0
 #+end_src
 
-
 Using keydisk (Optional)
 #+name: bioctl-keydisk
 #+begin_src shell :shebang (a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim

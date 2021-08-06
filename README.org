@@ -795,14 +795,14 @@ NOTE: New line at EOF is required.
   echo «pass-show("bioctl")» > /tmp/.passphrase
 #+end_src
 
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "-rw-------" block))
   chmod 0600 /tmp/.passphrase
   ls -l /tmp/.passphrase
 #+end_src
 
 Initialize RAID on sd0
 #+name: bioctl-passphrase
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "softraid0:" block))
   bioctl -p /tmp/.passphrase -c C -l sd0a softraid0
 #+end_src
 

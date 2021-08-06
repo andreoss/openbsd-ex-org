@@ -557,6 +557,10 @@ Start VM:
 #+NAME: start-qemu
 #+begin_src shell
   ./vm start
+#+end_src
+
+#+NAME: boot-install
+#+begin_src shell :post assert!(*this*, '(a/contains? "switching console to com0" block))
   ./set-tty
 #+end_src
 

@@ -1053,17 +1053,60 @@ Not ready to reboot yet. Go back to the shell to install UEFI.
 * Login into the new system
 Start VM without the installation media, and type cryptodisk password:
 #+name: start-vm
-#+begin_src shell
+#+begin_src shell :post assert!(*this*, '(a/contains? "boot>" block))
   ./vm stop
   USE_INSTALL=0 ./vm start
   ./type-password «pass-show("bioctl")»
 #+end_src
 
+#+RESULTS: start-vm
+#+begin_example
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[0m[35m[40m[2J[01;01H[=3h[2J[01;01H[0m[37m[40m[2J[01;01H[=3h[2J[01;01H[2J[01;01Hprobing: pc0 com0 mem[640K 7M 32K 32K 482M 668K 1M 16M 696K]
+disk: hd0 sr0*
+>> OpenBSD/amd64 BOOTX64 3.57
+Passphrase:
+|/-\|/-\|/-\switching console to com0
+>> OpenBSD/amd64 BOOTX64 3.57
+boot>
+#+end_example
+
 Login as root via COM
 #+name: login-as-root
-#+begin_src shell
+#+begin_src shell :post assert!(*this*, '(a/contains? "Welcome to OpenBSD" block))
   ./login root «ref("root-password")»
 #+end_src
+
+#+RESULTS: login-as-root
+#+begin_example
+
+
+
+Trying 127.0.0.1...
+Connected to localhost.
+Escape character is '^]'.
+
+
+OpenBSD/amd64 (puffy.cx) (tty00)
+
+login: root
+Password:
+Last login: Fri Aug  6 00:57:47 on tty00
+OpenBSD 6.9 (GENERIC) #464: Mon Apr 19 10:28:56 MDT 2021
+
+Welcome to OpenBSD: The proactively secure Unix-like operating system.
+
+Please use the sendbug(1) utility to report bugs in the system.
+Before reporting a bug, please try to reproduce it with the latest
+version of the code.  With bug reports, please try to ensure that
+enough information to reproduce the problem is enclosed, and if a
+known fix for it exists, include that as well.
+
+You have new mail.
+[3g        H        H        H        H        H        H        H        H        Hpuffy#
+#+end_example
 
 * Post-install (Serial)
 ** Tcl scripts
@@ -1135,7 +1178,7 @@ New user
 
 *** Add user
 #+name: add-user
-#+begin_src shell
+#+begin_src shell :post assert!(*this*, '(a/contains? "Added user" block))
   ./adduser
 #+end_src
 

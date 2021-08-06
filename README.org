@@ -3,8 +3,8 @@
 #+EMAIL: andreoss@sdf.org
 #+LANGUAGE: en
 #+KEYWORDS: openbsd emacs org-mode
-#+PROPERTY: header-args :eval yes :noweb yes eval :exports both :cache no
-#+PROPERTY: header-args:shell+ :shebang (a/host) :results verbatim
+#+PROPERTY: header-args :eval yes :noweb yes eval :exports results
+#+PROPERTY: header-args:shell+ :shebang (a/host) :noweb yes :results output
 #+HTML_HEAD: <style> body { background-color: #ffffea; } </style>
 #+LINK_UP:
 #+LINK_HOME: index.html

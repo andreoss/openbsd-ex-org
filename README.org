@@ -54,7 +54,6 @@ See [[file:default.nix][default.nix]]
 #+END_SRC
 
 ** Lisp Macros & Functions
-
 *** Macros
 This macros are needed to provide dynamic values in `header-args`.
 
@@ -98,6 +97,8 @@ zzz
         (org-babel-lob-get-info
          (list 'babel-call
                (list :call "ref-unquoted" :arguments (concat "'" ,name)))))))
+  (defun a/contains? (needle haystack)
+    (assert (cl-search needle haystack)))
 
 #+end_src
 

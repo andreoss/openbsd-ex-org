@@ -286,6 +286,7 @@ This block is executed via ~Buffer settings~ & [[file:init.el]].
 #+BEGIN_SRC emacs-lisp
   (require 'ob-shell)
   (require 'ob-eshell)
+  (require 'cl)
   (setq org-babel-eval-verbose nil)
   «macros»
 #+END_SRC

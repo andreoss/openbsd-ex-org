@@ -791,8 +791,8 @@ Prepare keydisk (Optional)
 **** Put passphase in a file
 NOTE: New line at EOF is required.
 #+name: pass-file
-#+begin_src shell :shebang (a/guest)
-  echo «pass-show("bioctl")» | tee /tmp/.passphrase
+#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "#" block))
+  echo «pass-show("bioctl")» > /tmp/.passphrase
 #+end_src
 
 #+begin_src shell :shebang (a/guest)

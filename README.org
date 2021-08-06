@@ -1172,8 +1172,8 @@ New user
 Disable password promt for staff group.
 See [[https://man.openbsd.org/doas.conf.5][doas.conf(5)]]
 
-#+name: Doas configuration
-#+begin_src shell :shebang (a/guest)
+#+name: configure-doas
+#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "#" block))
   echo permit nopass :«ref("user-group")»| tee /etc/doas.conf
 #+end_src
 
@@ -1252,7 +1252,7 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 
 * Post-install (SSH)
 :PROPERTIES:
-:header-args: :dir (a/remote) :session *post-install*
+:header-args: :dir (a/remote) :session *post-install* :noweb yes eval :exports both :cache no
 :END:
 ** Configure sudo
 Tramp does not support [[https://man.openbsd.org/doas][doas(8)]].

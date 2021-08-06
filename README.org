@@ -225,7 +225,7 @@ NOTE: The installation image is mutable, the checksum most likely won't match af
 *** (Optional) Patch installation image in order to enable serial port
 Less bug-prone than set-tty script.
 :PROPERTIES:
-:header-args:+ :export none :eval no :results verbatim
+:header-args: :eval no
 :END:
 **** On GNU/Linux
 :PROPERTIES:

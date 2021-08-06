@@ -1418,12 +1418,61 @@ echo "DisplayManager.*.autoLogin: «ref('user-name)»" | doas tee -a /etc/X11/xe
   doas rcctl check xenodm
 #+end_src
 
-** Install StumpWM
-#+call: pkg_add("stumpwm")
+*** Common Lisp
+#+call: pkg_add("sbcl--threads")
+
+https://www.quicklisp.org/beta/
+
 #+begin_src shell
-echo "exec stumpwm" | tee ~/.xsession | wc -l
+ curl -O https://beta.quicklisp.org/quicklisp.lisp
+ curl -O https://beta.quicklisp.org/quicklisp.lisp.asc
 #+end_src
 
+
+#+begin_src shell
+ gpg --keyserver pgp.mit.edu --recv-keys 028B5FF7
+#+end_src
+
+#+begin_src shell
+ gpg --verify quicklisp.lisp.asc quicklisp.lisp
+#+end_src
+
+#+begin_src shell
+ sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)"
+#+end_src
+
+#+begin_src shell
+ sbcl --non-interactive --load quicklisp/setup.lisp --eval "(ql-util:without-prompting (ql:add-to-init-file))"
+#+end_src
+
+
+
+*** Install StumpWM
+#+call: pkg_add("openbsd-backgrounds")
+
+#+begin_src shell
+ sbcl --non-interactive --eval "(ql:quickload :bt-semaphore)"
+#+end_src
+
+#+begin_src shell
+  sbcl --non-interactive --eval "(ql:quickload :external-program)"
+#+end_src
+
+#+begin_src shell
+ sbcl --non-interactive --eval "(ql:quickload :swank)"
+#+end_src
+
+#+begin_src shell
+ sbcl --non-interactive --eval "(ql:quickload :stumpwm)"
+#+end_src
+
+#+begin_src shell
+git clone https://github.com/andreoss/.stumpwm.d
+#+end_src
+
+#+begin_src shell
+  echo "exec ~/.stumpwm.d/start.sh" > ~/.xsession
+#+end_src
 
 * COMMENT Buffer settings
 Same as [[file:init.el][init.el]]

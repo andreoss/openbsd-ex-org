@@ -1059,20 +1059,6 @@ Start VM without the installation media, and type cryptodisk password:
   ./type-password «pass-show("bioctl")»
 #+end_src
 
-#+RESULTS: start-vm
-#+begin_example
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[2J[01;01H[=3h[2J[01;01H[0m[35m[40m[2J[01;01H[=3h[2J[01;01H[0m[37m[40m[2J[01;01H[=3h[2J[01;01H[2J[01;01Hprobing: pc0 com0 mem[640K 7M 32K 32K 482M 668K 1M 16M 696K]
-disk: hd0 sr0*
->> OpenBSD/amd64 BOOTX64 3.57
-Passphrase:
-|/-\|/-\|/-\switching console to com0
->> OpenBSD/amd64 BOOTX64 3.57
-boot>
-#+end_example
-
 Login as root via COM
 #+name: login-as-root
 #+begin_src shell :post assert!(*this*, '(a/contains? "Welcome to OpenBSD" block))

@@ -201,6 +201,7 @@ A wrapper for the script above to use it as part of shebang.
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
 #+end_src
 
+#+name: download
 #+begin_src shell :eval (a/is-system? openbsd)
   ftp  «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
@@ -216,6 +217,7 @@ NOTE: The installation image is mutable, the checksum most likely won't match af
 #+end_src
 
 **** On OpenBSD
+#+name: verify
 #+begin_src shell :eval (a/is-system? openbsd)
   signify -C -x SHA256.sig «ref("install-image")»
 #+end_src

@@ -1274,7 +1274,7 @@ Let's install & configure sudo with the same permissions as doas.
 
 * Configuration
 :PROPERTIES:
-:header-args: :dir (a/remote) :session *configuration*
+:header-args: :dir (a/remote) :session *configuration* :noweb yes eval :exports both :cache no
 :END:
 ** Install packages
 Unlock database in case it's locked (see pkg_check(8)).

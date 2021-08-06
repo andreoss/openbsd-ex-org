@@ -780,7 +780,7 @@ Prepare keydisk (Optional)
       echo a a;
       echo ;
       echo ;
-      echo RAID;
+      echo raid;
       echo w;
       echo q;
   } | disklabel -E sd1

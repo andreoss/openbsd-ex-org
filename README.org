@@ -326,6 +326,12 @@ All code with this shebang will log its stderr & stdout to ~$LOG~.
 
 *** Reference parameter from the table below
 Reference a value from [[Parameters]].
+#+name: assert!
+#+begin_src emacs-lisp :var block=0 contains='()
+  (eval contains)
+  (format "%s" block)
+#+end_src
+
 #+NAME: ref-unquoted
 #+BEGIN_SRC emacs-lisp :var  name="" table=references
   (let ((key (if (symbolp name) (symbol-name name) name)))

@@ -424,7 +424,7 @@ This BIOS does not support CD, this is why we are using a USB image.
 * Start Qemu
 ** Script to control VM
 :PROPERTIES:
-:header-args:shell: :tangle vm :eval never :tangle-mode (identity #o755) :shebang "#!/bin/bash"
+:header-args:shell: :tangle vm :eval no :tangle-mode (identity #o755) :shebang "#!/bin/bash"
 :END:
 Wait until port is open:
 #+begin_src shell

@@ -1030,20 +1030,17 @@ Not ready to reboot yet. Go back to the shell to install UEFI.
   newfs_msdos /dev/sd0i
 #+end_src
 
-#+name: Mount & copy boot loader
-#+begin_src shell :eval no
-  ./start-shell
-#+end_src
-
-#+begin_src shell :shebang (a/guest)
+#+name: copy-uefi
+#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "/mnt2 type msdos" block))
   mount /dev/sd0i /mnt2
   cp /mnt/usr/mdec/BOOTX64.EFI /mnt2/efi/boot/
+  mount
   umount /dev/sd0i
 #+end_src
 
 ** Reboot
 #+name: reboot after install
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "#" block))
   halt
 #+end_src
 

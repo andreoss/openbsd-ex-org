@@ -307,13 +307,16 @@ This block is executed via ~Buffer settings~ & [[file:init.el]].
 **** Shell wrapper to capture logs
 This is useful for debugging.
 All code with this shebang will log its stderr & stdout to ~$LOG~.
+
 #+name: log
-#+begin_src shell
+#+begin_src shell :eval no
   LOG=${LOG:-output.log}
 #+end_src
+
 #+name: host-shell
-#+begin_src shell :tangle host-shell :shebang "#!/bin/bash" :eval no
+#+begin_src shell :tangle host-shell :shebang "#!/bin/bash" :eval no :noweb yes
   «log»
+  set -x
   if [ "$LOG" ]
   then
       exec 1> >(tee -a "$LOG") 2> >(tee -a "$LOG" >&2)

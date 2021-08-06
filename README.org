@@ -547,10 +547,9 @@ Network with port forwarding:
 #+end_src
 
 ** Start QEMU & set TTY to com0
-
 Stop VM:
 #+NAME: stop-qemu
-#+begin_src shell :results none
+#+begin_src shell
   ./vm stop
 #+end_src
 

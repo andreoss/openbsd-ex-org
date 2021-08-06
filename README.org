@@ -347,7 +347,6 @@ echo «ref("user-name")»
 #+end_src
 #+end_example
 
-
 * Parameters
 The following table is to parameterize the system.
 

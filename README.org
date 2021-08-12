@@ -66,39 +66,44 @@ zzz
 
 #+name: macros
 #+begin_src emacs-lisp
-  (defmacro a/is-system? (sys)
-    "Which is the host system?. "
-    `(if (eq system-type ',sys) "yes" "no"))
-  (defmacro a/host       ()
-    "Shebang for scripts executed on host. "
-    `(concat "#!" default-directory "host-shell"))
-  (defmacro a/guest      ()
-    "Shebang for scripts executed on guest. "
-    `(concat "#!" default-directory "guest-shell"))
-  (defmacro a/sudo      (&optional xs)
-    "Directory for executing as root. XS is sub directories. "
-    `(concat "/sudo::/" default-directory ,@xs))
-  (defmacro a/remote (&rest args)
-    `(save-excursion
-       (let (
-             (user (a/ref "user-name"))
-             (port (a/ref "ssh-port")))
-         (concat (format "/ssh:%s@localhost#%d:" user port) ,@args))))
-  (defmacro a/remote-sudo (&rest args)
-    (let (
-          (user (a/ref "user-name"))
-          (port (a/ref "ssh-port")))
-      (concat (format "/ssh:%s@localhost#%d|sudo:" user port) args)))
-  (defmacro a/ref (name)
-    `(save-excursion
-       (org-babel-goto-named-src-block "macros")
-       (org-babel-execute-src-block
-        nil
-        (org-babel-lob-get-info
-         (list 'babel-call
-               (list :call "ref-unquoted" :arguments (concat "'" ,name)))))))
-  (defun a/contains? (needle haystack)
-    (assert (cl-search needle haystack)))
+    (defvar a/ref-cache (make-hash-table :test 'equal))
+    (defmacro a/is-system? (sys)
+      "Which is the host system?. "
+      `(if (eq system-type ',sys) "yes" "no"))
+    (defmacro a/host       ()
+      "Shebang for scripts executed on host. "
+      `(concat "#!" default-directory "host-shell"))
+    (defmacro a/guest      ()
+      "Shebang for scripts executed on guest. "
+      `(concat "#!" default-directory "guest-shell"))
+    (defmacro a/sudo      (&optional xs)
+      "Directory for executing as root. XS is sub directories. "
+      `(concat "/sudo::/" default-directory ,@xs))
+    (defun a/remote ()
+         (let (
+               (user (a/ref "user-name"))
+               (port (a/ref "ssh-port")))
+           (concat (format "/ssh:%s@localhost#%d:" user port))))
+    (defun a/remote-sudo ()
+      (let (
+            (user (a/ref "user-name"))
+            (port (a/ref "ssh-port")))
+        (concat (format "/ssh:%s@localhost#%d|sudo:" user port))))
+    (defun a/ref (name)
+      (if-let ((value (gethash name a/ref-cache)))
+          value
+        (let ((evaluated
+               (save-excursion
+                 (org-babel-execute-src-block
+                  nil
+                  (org-babel-lob-get-info
+                   (list 'babel-call
+                         (list :call "ref-unquoted" :arguments (concat "'" name))))))))
+          (puthash name evaluated a/ref-cache)
+  evaluated
+          )))
+    (defun a/contains? (needle haystack)
+      (assert (cl-search needle haystack)))
 
 #+end_src
 

@@ -184,7 +184,6 @@ Execute a shell command via COM.
   log_user 0
   set command [lindex $argv 0];
   «serial»
-  send "\r"
   expect "# "
   log_user 1
   send "$command\r"

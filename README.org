@@ -1210,7 +1210,7 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 #+end_src
 
 *** Enable [[https://man.openbsd.org/sshd][sshd(8)]]
-#+name: Enable sshd
+#+name: enable-sshd
 #+begin_src shell :shebang (a/guest)
   rcctl enable sshd
   rcctl restart sshd

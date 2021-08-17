@@ -1271,10 +1271,6 @@ Install a package (see pkg_add(8)).
 
 #+call: pkg_add("emacs--gtk3")
 
-#+call: pkg_add("gtar--static")
-
-#+call: pkg_add("coreutils")
-
 #+call: pkg_add("wget")
 
 *** Firefox
@@ -1325,6 +1321,7 @@ See [[https://man.openbsd.org/apmd][apmd(8)]].
   doas rcctl start apmd
   doas rcctl check apmd
 #+end_src
+
 
 ** Readline
 #+begin_src fundamental :no_tangle /ssh:a@localhost#7922:~/.inputrc
@@ -1385,7 +1382,6 @@ Now resolv.conf should contain local DNS server
 #+end_src
 
 ** Configure X11
-
 *** Autologin
 #+begin_src shell :noweb yes
 echo "DisplayManager.*.autoLogin: «ref('user-name)»" | doas tee -a /etc/X11/xenodm/xenodm-config
@@ -1400,16 +1396,34 @@ echo "DisplayManager.*.autoLogin: «ref('user-name)»" | doas tee -a /etc/X11/xe
   doas rcctl check xenodm
 #+end_src
 
-*** Common Lisp
-#+call: pkg_add("sbcl--threads")
+** Window manager
+*** Ratpoison
 
+#+call: pkg_add("ratpoison")
+
+#+begin_src shell :post assert!(*this*, '(a/contains? "/usr/local/bin/ratpoison" block))
+which ratpoison
+#+end_src
+
+#+begin_src shell
+echo "exec ratpoison" > ~/.xsession
+#+end_src
+
+
+*** StumpWM
+:PROPERTIES:
+:header-args: :eval no
+:END:
+**** Common Lisp
+***** Complier
+#+call: pkg_add("sbcl--threads")
+***** Quicklisp
 https://www.quicklisp.org/beta/
 
 #+begin_src shell
  curl -O https://beta.quicklisp.org/quicklisp.lisp
  curl -O https://beta.quicklisp.org/quicklisp.lisp.asc
 #+end_src
-
 
 #+begin_src shell
  gpg --keyserver pgp.mit.edu --recv-keys 028B5FF7
@@ -1423,13 +1437,14 @@ https://www.quicklisp.org/beta/
  sbcl --non-interactive --load quicklisp.lisp --eval "(quicklisp-quickstart:install)"
 #+end_src
 
+
+Add Quicklisp to .sbclrc
 #+begin_src shell
  sbcl --non-interactive --load quicklisp/setup.lisp --eval "(ql-util:without-prompting (ql:add-to-init-file))"
 #+end_src
 
+**** Install StumpWM
 
-
-*** Install StumpWM
 #+call: pkg_add("openbsd-backgrounds")
 
 #+begin_src shell
@@ -1448,13 +1463,76 @@ https://www.quicklisp.org/beta/
  sbcl --non-interactive --eval "(ql:quickload :stumpwm)"
 #+end_src
 
-#+begin_src shell
+#+begin_src shell :dir (eval 'a/remote)
 git clone https://github.com/andreoss/.stumpwm.d
 #+end_src
 
 #+begin_src shell
   echo "exec ~/.stumpwm.d/start.sh" > ~/.xsession
 #+end_src
+
+**** Miscellaneous
+
+#+call: pkg_add("rxvt-unicode")
+
+#+begin_src shell :post assert!(*this*, '(a/contains? "/usr/local/bin/urxvt" block))
+which urxvt
+#+end_src
+
+** Configure shell
+
+#+begin_src shell
+git clone https://github.com/andreoss/.config
+#+end_src
+
+#+begin_src shell
+ln -s ~/.config/shrc ~/.kshrc
+ln -s ~/.config/shrc ~/.bashrc
+ln -s ~/.config/shrc ~/.bash_profile
+ln -s ~/.config/inputrc ~/.inputrc
+#+end_src
+
+** Configure Emacs
+#+begin_src shell
+  git clone https://github.com/andreoss/.emacs.d
+#+end_src
+
+#+call: pkg_add("poppler")
+
+#+call: pkg_add("ImageMagick")
+
+#+call: pkg_add("gtar--static")
+
+#+call: pkg_add("aspell")
+
+#+call: pkg_add("coreutils")
+
+** (Optional) Migrate current configuration
+#+call: pkg_add("rsync--")
+#+begin_src shell :post assert!(*this*, '(a/contains? "/usr/local/bin/rsync" block))
+which rsync
+#+end_src
+
+*** SSH
+#+begin_src shell :dir ~ :noweb yes :session no
+rsync -ahvc -e 'ssh -p «ref('ssh-port)»' ~/.ssh localhost:
+#+end_src
+
+*** GPG
+
+#+begin_src shell :dir ~ :noweb yes :session no
+rsync -ahc -e 'ssh -p «ref('ssh-port)»' ~/.gnupg localhost:
+#+end_src
+
+*** Pass
+
+#+call: pkg_add("pass-otp")
+
+#+begin_src shell :dir ~ :noweb yes :session no
+rsync -ahc -e 'ssh -p «ref('ssh-port)»' ~/.password-store localhost:
+#+end_src
+
+** TODO Adblock with unbound
 
 * COMMENT Buffer settings
 Same as [[file:init.el][init.el]]
@@ -1463,6 +1541,7 @@ It's impossible to use tangling here.
 # Local Variables:
 # org-babel-noweb-wrap-start: "«"
 # org-babel-noweb-wrap-end:   "»"
+# org-use-property-inheritance: t
 # org-confirm-babel-evaluate: nil
 # eval: (require 'ob-shell)
 # eval: (progn (org-babel-goto-named-src-block "startup") (org-babel-execute-src-block) (outline-hide-sublevels 1))

@@ -1311,6 +1311,14 @@ Install a package (see pkg_add(8)).
 - ~-A~ :: enables performance adjustment mode
 - ~-Z 5~ :: hibernate at 5% battery life
 See [[https://man.openbsd.org/apmd][apmd(8)]].
+
+#+begin_src shell
+  doas mkdir /etc/apm
+  echo "#!/bin/sh"         | doas tee  /etc/apm/suspend
+  echo "pkill -USR1 xidle" | doas tee -a  /etc/apm/suspend
+  doas chmod +x /etc/apm/syspend
+#+end_src
+
 #+begin_src shell
   doas rcctl enable apmd
   doas rcctl set apmd flags -A -Z 5

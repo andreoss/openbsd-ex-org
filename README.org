@@ -1120,7 +1120,7 @@ Disable password promt for staff group.
 See [[https://man.openbsd.org/doas.conf.5][doas.conf(5)]]
 
 #+name: configure-doas
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "#" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "#" block))
   echo permit nopass :«ref("user-group")»| tee /etc/doas.conf
 #+end_src
 
@@ -1128,33 +1128,33 @@ See [[https://man.openbsd.org/doas.conf.5][doas.conf(5)]]
 Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 *** Backup original config
     #+name: backup-sshd_config
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (eval 'a/guest)
   cp /etc/ssh/sshd_config{,.orig}
 #+end_src
 
 *** Disable banner
 #+name: configure-sshd-1
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (eval 'a/guest)
   perl -i -pE 's/[#]?(Banner)                 \s+ \S+/$1 none/x' /etc/ssh/sshd_config
   perl -i -pE 's/[#]?(PrintMotd)              \s+ \S+/$1 no/x' /etc/ssh/sshd_config
 #+end_src
 
 *** Disable/enable X11 Forwading
 #+name: configure-sshd-2
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (eval 'a/guest)
   perl -i -pE 's/[#]?(X11Forwarding)          \s+ \S+/$1 yes/x' /etc/ssh/sshd_config
 #+end_src
 
 *** Disable password authentication & root login
     #+name: configure-sshd33
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (eval 'a/guest)
   perl -i -pE 's/[#]?(PasswordAuthentication) \s+ \S+/$1 no/x' /etc/ssh/sshd_config
   perl -i -pE 's/[#]?(PermitRootLogin)        \s+ \S+/$1 no/x' /etc/ssh/sshd_config
 #+end_src
 
 *** Enable [[https://man.openbsd.org/sshd][sshd(8)]]
 #+name: enable-sshd
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (eval 'a/guest)
   rcctl enable sshd
   rcctl restart sshd
 #+end_src
@@ -1166,14 +1166,14 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 #+end_src
 
 #+name: add-ssh-key
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (eval 'a/guest)
   echo «ssh-key()» | doas -u a tee /home/a/.ssh/authorized_keys
 #+end_src
 
 *** Enable network
 **** Use rcctl & /etc/hostname.vio0 instead of dhclient
 #+name: Enable sshd
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (eval 'a/guest)
   {
       echo "-inet6"
       echo "dhcp"
@@ -1182,12 +1182,12 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 #+end_src
 
 #+name: netstart
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (eval 'a/guest)
   sh /etc/netstart
 #+end_src
 
 #+name: temporary-dns
-#+begin_src shell :shebang (a/guest)
+#+begin_src shell :shebang (eval 'a/guest)
   perl -i -pE 's/(nameserver) \s+ \S+/$1 8.8.8.8/x' /etc/resolv.conf
 #+end_src
 
@@ -1199,7 +1199,7 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 
 * Post-install (SSH)
 :PROPERTIES:
-:header-args: :dir (a/remote) :session *post-install* :noweb yes eval :exports both :cache no
+:header-args: :dir (eval 'a/remote) :session *post-install* :noweb yes eval :exports both :cache no
 :END:
 ** Configure sudo
 Tramp does not support [[https://man.openbsd.org/doas][doas(8)]].
@@ -1218,10 +1218,37 @@ Let's install & configure sudo with the same permissions as doas.
 #+begin_src shell
   doas fw_update -a
 #+end_src
+** Disable com0 at boot
+#+name: disable-com0
+#+begin_src shell
+  sudo perl -i.bak -nE 'print unless /com0/' /etc/boot.conf
+#+end_src
+** wscons
+   #+begin_src shell
+     echo 'keyboard.bell.volume=0'                       | doas tee     /etc/wsconsctl.conf
+     echo 'keyboard.map+="keysym Caps_Lock = Control_L"' | doas tee -a /etc/wsconsctl.conf
+     echo 'display.screen_off=60000'                     | doas tee -a /etc/wsconsctl.conf
+   #+end_src
+** sysctl
+   #+begin_src shell
+     echo 'vm.swapencrypt.enable=1'                      | doas tee     /etc/sysctl.conf
+     echo 'machdep.lidaction=2' | doas tee -a  /etc/sysctl.conf
+     echo 'machdep.pwraction=1' | doas tee -a  /etc/sysctl.conf
+   #+end_src
+** ntpd
+   #+begin_src shell
+     doas rcctl disable ntpd
+     doas rcctl stop ntpd
+   #+end_src
+** noatime softdep
+   #+begin_src shell
+     doas perl -i.bak -pE 's/(?<=rw)(?!,noatime)/,noatime/' /etc/fstab
+     doas perl -i.bak -pE 's/(?<=rw)(?!,softdep)/,softdep/' /etc/fstab
+   #+end_src
 
 * Configuration
 :PROPERTIES:
-:header-args: :dir (a/remote) :session *configuration* :noweb yes eval :exports both :cache no
+:header-args: :dir (eval 'a/remote) :session *configuration* :noweb yes :exports both :cache no
 :END:
 ** Install packages
 Unlock database in case it's locked (see pkg_check(8)).

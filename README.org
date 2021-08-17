@@ -404,28 +404,92 @@ Generate password:
         (concat "pass generate --no-symbols " (a/ref "hostname") "/" name " " length))))
 #+end_src
 
-* Qemu
-** Setup UEFI Bios
-*** UEFI Bios image
-Installing [[https://github.com/tianocore/tianocore.github.io/wiki/OVMF][UEFI Bios]] for QEMU.
-This BIOS does not support CD, this is why we are using a USB image.
+* Installation media
+** Download installation image
+#+name: download
+#+begin_src shell :eval (a/is-system? gnu/linux)
+  wget --continue «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
+       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
+       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
+#+end_src
 
+#+name: download
+#+begin_src shell :eval (a/is-system? openbsd)
+  ftp  «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
+       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
+       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
+#+end_src
+
+** Verify SHA256
+NOTE: The installation image is mutable, the checksum most likely won't match after the first boot.
+**** On GNU/Linux (verify SHA256)
+#+name: verify
+#+begin_src shell :eval (a/is-system? gnu/linux)
+  sha256sum --ignore-missing --check SHA256
+#+end_src
+
+**** On OpenBSD
+#+name: verify
+#+begin_src shell :eval (a/is-system? openbsd)
+  signify -C -x SHA256.sig «ref("install-image")»
+#+end_src
+
+** (Optional) Patch installation image in order to enable serial port
+Less bug-prone than set-tty script.
+:PROPERTIES:
+:header-args: :eval no
+:END:
+**** On GNU/Linux
+:PROPERTIES:
+:header-args: :eval no
+:END:
+
+Make sure that UFS can be mounted with RW permissions.
+For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot.nix]]:
+#+begin_src nix
+  boot.kernelPatches = [
+    {
+      name = "ufs-rw-support";
+      patch = null;
+      extraConfig = "UFS_FS_WRITE y";
+    }
+  ];
+#+end_src
+
+#+name: ufs-check
 #+begin_src shell
-  wget --continue https://packages.slackonly.com/pub/packages/14.2-x86_64/system/ovmf/ovmf-20171116-noarch-1_slonly.txz
+  zgrep UFS_FS /proc/config.gz
 #+end_src
 
-#+begin_src shell
-  tar  -C ./bios -xvf ovmf*txz --strip-components=2
+#+begin_src shell :dir (a/sudo)
+  losetup --partscan /dev/loop0 install69.img
 #+end_src
 
-** Prepare image
-*** Main volume
-#+name: qemu-img
-#+begin_src shell :post assert!(*this*, '(a/contains? "Formatting" block))
-  qemu-img create -f «ref("image-format")» «ref("system-image")» «ref("volume-size")»
+#+begin_src shell :dir (a/sudo)
+  sfdisk -l /dev/loop0
 #+end_src
 
-* Start Qemu
+#+begin_src shell :dir (a/sudo)
+  mkdir -p /tmp/install
+  mount -t ufs -o ufstype=44bsd,rw /dev/loop0p4 /tmp/install
+#+end_src
+
+#+begin_src shell :dir (a/sudo)
+  echo "stty com0 115200" >> /tmp/install/etc/boot.conf
+  echo "set tty com0"     >> /tmp/install/etc/boot.conf
+#+end_src
+
+#+begin_src shell :dir (a/sudo)
+  umount /tmp/install
+  losetup --detach-all
+#+end_src
+
+**** TODO On OpenBSD
+[[https://unix.stackexchange.com/questions/656910/how-to-change-the-installation-image-to-use-com-as-default-console][Discussion on SO]].
+:PROPERTIES:
+:header-args: :eval (a/is-system? 'openbsd)
+:END:
+
 ** Script to control VM
 :PROPERTIES:
 :header-args:shell: :tangle vm :eval no :tangle-mode (identity #o755) :shebang "#!/bin/bash"
@@ -550,6 +614,28 @@ Network with port forwarding:
   esac
 #+end_src
 
+* Qemu
+** Setup UEFI Bios
+*** UEFI Bios image
+Installing [[https://github.com/tianocore/tianocore.github.io/wiki/OVMF][UEFI Bios]] for QEMU.
+This BIOS does not support CD, this is why we are using a USB image.
+
+#+begin_src shell
+  wget --continue https://packages.slackonly.com/pub/packages/14.2-x86_64/system/ovmf/ovmf-20171116-noarch-1_slonly.txz
+#+end_src
+
+#+begin_src shell
+  tar  -C ./bios -xvf ovmf*txz --strip-components=2
+#+end_src
+
+** Prepare image
+*** Main volume
+#+name: qemu-img
+#+begin_src shell :post assert!(*this*, '(a/contains? "Formatting" block))
+  qemu-img create -f «ref("image-format")» «ref("system-image")» «ref("volume-size")»
+#+end_src
+
+* Instalation
 ** Start QEMU & set TTY to com0
 Stop VM:
 #+NAME: stop-qemu
@@ -568,77 +654,35 @@ Start VM:
   ./set-tty
 #+end_src
 
-* Instalation
 ** Start interactive shell
 #+NAME: start-shell
 #+begin_src shell :post assert!(*this*, '(a/contains? "#" block))
 ./start-shell
 #+end_src
 
-#+RESULTS: start-shell
-:
-: Trying 127.0.0.1...
-: Connected to localhost.
-: Escape character is '^]'.
-:
-:
-: (I)nstall, (U)pgrade, (A)utoinstall or (S)hell? (I)nstall, (U)pgrade, (A)utoinstall or (S)hell? S
-: #
-
 ** Check available disks (sd0 & wd0 should present)
 Print names of available disks:
 #+name: check-disknames
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "hw.disknames=" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "hw.disknames=" block))
   sysctl hw.disknames
 #+end_src
 
 You should see the target image being attached as ~sd0~.
 #+name: check-sd0
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "sd0 at" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "sd0 at" block))
   dmesg | grep sd[0-9]
 #+end_src
 
-#+RESULTS: check-sd0
-#+begin_example
-
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-
-#
-#
-# dmesg | grep sd[0-9]
-sd0 at scsibus0 targ 0 lun 0: <QEMU, QEMU HARDDISK, 2.5+>
-sd0: 32768MB, 512 bytes/sector, 67108864 sectors, thin
-#
-#+end_example
-
 Installation media should be available as ~wd0~ (if installing from img file)
 #+name: check-wd0
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "wd0 at" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "wd0 at" block))
   dmesg | grep wd[0-9]
 #+end_src
-
-#+RESULTS: check-wd0
-#+begin_example
-
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-
-#
-#
-# dmesg | grep wd[0-9]
-wd0 at pciide0 channel 0 drive 0: <QEMU HARDDISK>
-wd0: 16-sector PIO, LBA48, 664MB, 1360832 sectors
-wd0(pciide0:0:0): using PIO mode 4, DMA mode 2
-#
-#+end_example
 
 ** Prepare disk
 *** Create devices for sd0 and sd1
 #+name: create-devices
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "sd0a" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "sd0a" block))
   cd /dev
   sh MAKEDEV sd0
   sh MAKEDEV sd1
@@ -646,147 +690,50 @@ wd0(pciide0:0:0): using PIO mode 4, DMA mode 2
   ls -l sd*a
 #+end_src
 
-#+RESULTS: create-devices
-#+begin_example
-
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-
-#
-#
-# cd /dev
-# sh MAKEDEV sd0
-# sh MAKEDEV sd1
-# sh MAKEDEV sd2
-# ls -l sd*a
-brw-r-----  1 root  operator    4,   0 Aug  6 05:30 sd0a
-brw-r-----  1 root  operator    4,  16 Aug  6 05:30 sd1a
-brw-r-----  1 root  operator    4,  32 Aug  6 05:30 sd2a
-#
-#+end_example
-
 *** Remove disk content
 #+name: shred-gpt
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "bytes transferred" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "bytes transferred" block))
   dd if=/dev/zero of=/dev/rsd0c bs=1m count=100
 #+end_src
-
-#+RESULTS: shred-gpt
-#+begin_example
-
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-
-#
-#
-# dd if=/dev/zero of=/dev/rsd0c bs=1m count=100
-100+0 records in
-100+0 records out
-104857600 bytes transferred in 0.310 secs (337221395 bytes/sec)
-#+end_example
 
 
 *** Run fdisk
 #+name: fdisk-sd0
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "Writing GPT." block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "Writing GPT." block))
   fdisk -iy -g -b 960 sd0
 #+end_src
 
-#+RESULTS: fdisk-sd0
-#+begin_example
-
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-
-#
-#
-# fdisk -iy -g -b 960 sd0
-Writing MBR at offset 0.
-Writing GPT.
-#
-#+end_example
-
 The same for keydisk (Optional)
 #+name: fdisk-sd1
-#+begin_src shell :shebang (a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no")
+#+begin_src shell :shebang (eval 'a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no")
   fdisk -iy -g -b 960 sd1
 #+end_src
 
 *** Disklabel
 Create one RAID partition using entire disk space.
 #+name: disklabel-sd0
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "partitions" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "partitions" block))
   {
-      echo a a;
-      echo ;
-      echo ;
-      echo raid;
-      echo w;
-      echo q;
+      echo a a
+      echo
+      echo
+      echo raid
+      echo w
+      echo q
   } | disklabel -E sd0
   disklabel sd0
 #+end_src
 
-#+RESULTS: disklabel-sd0
-#+begin_example
-
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-
-#
-#
-# {
->     echo a a;
->     echo ;
->     echo ;
->     echo raid;
->     echo w;
->     echo q;
-> } | disklabel -E sd0
-Label editor (enter '?' for help at any prompt)
-No space left, you need to shrink a partition
-Total free sectors: 0.
-sd0> sd0> sd0> sd0> sd0> sd0> No label changes.
-# disklabel sd0
-# /dev/rsd0c:
-type: SCSI
-disk: SCSI disk
-label: QEMU HARDDISK
-duid: 6b142655602f9ad6
-flags:
-bytes/sector: 512
-sectors/track: 256
-tracks/cylinder: 16
-sectors/cylinder: 4096
-cylinders: 16383
-total sectors: 67108864
-boundstart: 1024
-boundend: 67108801
-drivedata: 0
-
-16 partitions:
-#                size           offset  fstype [fsize bsize   cpg]
-  a:         67107777             1024    RAID
-  c:         67108864                0  unused
-  i:              960               64   MSDOS
-#
-#+end_example
-
-
 Prepare keydisk (Optional)
 #+name: Disklabel on sd1
-#+begin_src shell :shebang (a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
+#+begin_src shell :shebang (eval 'a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
   {
-      echo a a;
-      echo ;
-      echo ;
-      echo raid;
-      echo w;
-      echo q;
+      echo a a
+      echo
+      echo
+      echo raid
+      echo w
+      echo q
   } | disklabel -E sd1
   disklabel sd1
 #+end_src
@@ -795,24 +742,24 @@ Prepare keydisk (Optional)
 **** Put passphase in a file
 NOTE: New line at EOF is required.
 #+name: pass-file
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "#" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "#" block))
   echo «pass-show("bioctl")» > /tmp/.passphrase
 #+end_src
 
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "-rw-------" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "-rw-------" block))
   chmod 0600 /tmp/.passphrase
   ls -l /tmp/.passphrase
 #+end_src
 
 Initialize RAID on sd0
 #+name: bioctl-passphrase
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "softraid0:" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "softraid0:" block))
   bioctl -p /tmp/.passphrase -c C -l sd0a softraid0
 #+end_src
 
 Using keydisk (Optional)
 #+name: bioctl-keydisk
-#+begin_src shell :shebang (a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
+#+begin_src shell :shebang (eval 'a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
   bioctl -k sd1a -c C -l sd0a softraid0
 #+end_src
 
@@ -938,8 +885,28 @@ No need to add a user at this step.
   }
 #+end_src
 
-Use automatic layout, which produces different results depending on volume size.
+Use custom layout, use entire volume as /.
 #+begin_src tcl
+  expect "Use (A)uto layout, (E)dit auto layout, or create (C)ustom layout?" {
+      send "c"
+      send "\r"
+      expect ">"            { send "a a"  ; send "\r" }
+      expect "offset:"      {               send "\r" }
+      expect "size:"        { send "90%"  ; send "\r" }
+      expect "FS type:"     {               send "\r" }
+      expect "mount point:" { send "/"    ; send "\r" }
+      expect ">"            { send "a b"  ; send "\r" }
+      expect "offset:"      {               send "\r" }
+      expect "size:"        { send "*"    ; send "\r" }
+      expect "FS type:"     { send "swap" ; send "\r" }
+      expect "*>"           { send "w"    ; send "\r" }
+      expect ">"            { send "p"    ; send "\r" }
+      expect ">"            { send "q"    ; send "\r" }
+  }
+#+end_src
+
+(Alternative) Use automatic layout, which produces different results depending on volume size.
+#+begin_src tcl :tangle no
   expect "Use (A)uto layout, (E)dit auto layout, or create (C)ustom layout?" {
       send "a\r"
   }
@@ -1029,21 +996,26 @@ Not ready to reboot yet. Go back to the shell to install UEFI.
 *** Mount partition & copy EFI
 #+name: Format UEFI Parition
 #+name: format-uefi-partition
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "block device" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "block device" block))
   newfs_msdos /dev/sd0i
 #+end_src
 
 #+name: copy-uefi
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "/mnt2 type msdos" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "/mnt2 type msdos" block))
   mount /dev/sd0i /mnt2
   cp /mnt/usr/mdec/BOOTX64.EFI /mnt2/efi/boot/
   mount
   umount /dev/sd0i
 #+end_src
+** Mount /tmp as mfs
+#+begin_src shell :shebang (eval 'a/guest)
+echo 'swap /tmp mfs rw,nodev,nosuid,-s=300m 0 0' >> /mnt/etc/fstab
+chmod 1777 /mnt/tmp
+#+end_src
 
 ** Reboot
 #+name: reboot after install
-#+begin_src shell :shebang (a/guest) :post assert!(*this*, '(a/contains? "#" block))
+#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "#" block))
   halt
 #+end_src
 
@@ -1068,35 +1040,6 @@ Login as root via COM
 #+begin_src shell :post assert!(*this*, '(a/contains? "Welcome to OpenBSD" block))
   ./login root «ref("root-password")»
 #+end_src
-
-#+RESULTS: login-as-root
-#+begin_example
-
-
-
-Trying 127.0.0.1...
-Connected to localhost.
-Escape character is '^]'.
-
-
-OpenBSD/amd64 (puffy.cx) (tty00)
-
-login: root
-Password:
-Last login: Fri Aug  6 00:57:47 on tty00
-OpenBSD 6.9 (GENERIC) #464: Mon Apr 19 10:28:56 MDT 2021
-
-Welcome to OpenBSD: The proactively secure Unix-like operating system.
-
-Please use the sendbug(1) utility to report bugs in the system.
-Before reporting a bug, please try to reproduce it with the latest
-version of the code.  With bug reports, please try to ensure that
-enough information to reproduce the problem is enclosed, and if a
-known fix for it exists, include that as well.
-
-You have new mail.
-[3g        H        H        H        H        H        H        H        H        Hpuffy#
-#+end_example
 
 * Post-install (Serial)
 ** Tcl scripts

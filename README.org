@@ -66,46 +66,43 @@ zzz
 
 #+name: macros
 #+begin_src emacs-lisp
-    (defvar a/ref-cache (make-hash-table :test 'equal))
-    (defmacro a/is-system? (sys)
-      "Which is the host system?. "
-      `(if (eq system-type ',sys) "yes" "no"))
-    (defmacro a/host       ()
-      "Shebang for scripts executed on host. "
-      `(concat "#!" default-directory "host-shell"))
-    (defmacro a/guest      ()
-      "Shebang for scripts executed on guest. "
-      `(concat "#!" default-directory "guest-shell"))
-    (defmacro a/sudo      (&optional xs)
-      "Directory for executing as root. XS is sub directories. "
-      `(concat "/sudo::/" default-directory ,@xs))
-    (defun a/remote ()
-         (let (
-               (user (a/ref "user-name"))
-               (port (a/ref "ssh-port")))
-           (concat (format "/ssh:%s@localhost#%d:" user port))))
-    (defun a/remote-sudo ()
-      (let (
-            (user (a/ref "user-name"))
-            (port (a/ref "ssh-port")))
-        (concat (format "/ssh:%s@localhost#%d|sudo:" user port))))
-    (defun a/ref (name)
-      (if-let ((value (gethash name a/ref-cache)))
-          value
-        (let ((evaluated
-               (save-excursion
-                 (org-babel-execute-src-block
-                  nil
-                  (org-babel-lob-get-info
-                   (list 'babel-call
-                         (list :call "ref-unquoted" :arguments (concat "'" name))))))))
-          (puthash name evaluated a/ref-cache)
-  evaluated
-          )))
-    (defun a/contains? (needle haystack)
-      (assert (cl-search needle haystack)))
+  (defvar a/ref-cache (make-hash-table :test 'equal))
+  (defun a/ref (name)
+    (if-let ((value (gethash name a/ref-cache)))
+        value
+      (let ((evaluated
+             (save-excursion
+               (org-babel-execute-src-block
+                nil
+                (org-babel-lob-get-info
+                 (list 'babel-call
+                       (list :call "ref-unquoted" :arguments (concat "'" name))))))))
+        (puthash name evaluated a/ref-cache)
+        evaluated
+        ))) (defmacro a/is-system? (sys)
+    "Which is the host system?. "
+    `(if (eq system-type ',sys) "yes" "no"))
+  (defmacro a/host       ()
+    `(concat "#!" default-directory "host-shell"))
+  (setq a/guest
+        (concat "#!" default-directory "guest-shell"))
+  (defmacro a/sudo      (&optional xs)
+    "Directory for executing as root. XS is sub directories. "
+    `(concat "/sudo::/" default-directory ,@xs))
+  (defvar a/remote
+    (let (
+          (user (a/ref "user-name"))
+          (port (a/ref "ssh-port")))
+      (concat (format "/ssh:%s@localhost#%d:" user port))))
+  (defvar a/remote-sudo
+    (let (
+          (user (a/ref "user-name"))
+          (port (a/ref "ssh-port")))
+      (concat (format "/ssh:%s@localhost#%d|sudo:" user port))))
+  (defun a/contains? (needle haystack)
+    (assert (cl-search needle haystack)))
 
-#+end_src
+        #+end_src
 
 *** Remove all result blocks
 Clean up this document from all /result/ blocks.
@@ -184,6 +181,7 @@ Execute a shell command via COM.
   log_user 0
   set command [lindex $argv 0];
   «serial»
+  send "\r"
   expect "# "
   log_user 1
   send "$command\r"
@@ -195,92 +193,6 @@ A wrapper for the script above to use it as part of shebang.
 #+begin_src shell :tangle guest-shell
   ./execute "$(sed 1d "$1")"
 #+end_src
-
-** Installation media
-*** Download installation image
-#+name: download
-#+begin_src shell :eval (a/is-system? gnu/linux)
-  wget --continue «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
-       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
-       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
-#+end_src
-
-#+name: download
-#+begin_src shell :eval (a/is-system? openbsd)
-  ftp  «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
-       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
-       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
-#+end_src
-
-*** Verify SHA256
-NOTE: The installation image is mutable, the checksum most likely won't match after the first boot.
-**** On GNU/Linux (verify SHA256)
-#+name: verify
-#+begin_src shell :eval (a/is-system? gnu/linux)
-  sha256sum --ignore-missing --check SHA256
-#+end_src
-
-**** On OpenBSD
-#+name: verify
-#+begin_src shell :eval (a/is-system? openbsd)
-  signify -C -x SHA256.sig «ref("install-image")»
-#+end_src
-
-*** (Optional) Patch installation image in order to enable serial port
-Less bug-prone than set-tty script.
-:PROPERTIES:
-:header-args: :eval no
-:END:
-**** On GNU/Linux
-:PROPERTIES:
-:header-args: :eval no
-:END:
-
-Make sure that UFS can be mounted with RW permissions.
-For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot.nix]]:
-#+begin_src nix
-  boot.kernelPatches = [
-    {
-      name = "ufs-rw-support";
-      patch = null;
-      extraConfig = "UFS_FS_WRITE y";
-    }
-  ];
-#+end_src
-
-#+name: ufs-check
-#+begin_src shell
-  zgrep UFS_FS /proc/config.gz
-#+end_src
-
-#+begin_src shell :dir (a/sudo)
-  losetup --partscan /dev/loop0 install69.img
-#+end_src
-
-#+begin_src shell :dir (a/sudo)
-  sfdisk -l /dev/loop0
-#+end_src
-
-#+begin_src shell :dir (a/sudo)
-  mkdir -p /tmp/install
-  mount -t ufs -o ufstype=44bsd,rw /dev/loop0p4 /tmp/install
-#+end_src
-
-#+begin_src shell :dir (a/sudo)
-  echo "stty com0 115200" >> /tmp/install/etc/boot.conf
-  echo "set tty com0"     >> /tmp/install/etc/boot.conf
-#+end_src
-
-#+begin_src shell :dir (a/sudo)
-  umount /tmp/install
-  losetup --detach-all
-#+end_src
-
-**** TODO On OpenBSD
-[[https://unix.stackexchange.com/questions/656910/how-to-change-the-installation-image-to-use-com-as-default-console][Discussion on SO]].
-:PROPERTIES:
-:header-args: :eval (a/is-system? 'openbsd)
-:END:
 
 ** Emacs configuration
 *** Startup

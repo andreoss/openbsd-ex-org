@@ -493,7 +493,7 @@ Network with port forwarding:
       start)
           [ -e "$QEMU_PID" ] && >&2 echo "Already running" && exit 1
           (
-              setsid "$QEMU_COMMAND" "${QEMU_OPTS[@]}" < /dev/null 2>/dev/null > /dev/null & disown
+              setsid "$QEMU_COMMAND" "${QEMU_OPTS[@]}" & disown
               PID=$!
               echo "$PID" > "$QEMU_PID"
           ) &
@@ -557,7 +557,7 @@ Stop VM:
 
 Start VM:
 #+NAME: start-qemu
-#+begin_src shell
+#+begin_src shell :prologue exec 0>&- 1>&- 2>&-
   ./vm start
 #+end_src
 
@@ -941,7 +941,7 @@ chmod 1777 /mnt/tmp
 * Login into the new system
 Start VM without the installation media, and type cryptodisk password:
 #+name: start-vm
-#+begin_src shell :post assert!(*this*, '(a/contains? "boot>" block))
+#+begin_src shell :post assert!(*this*, '(a/contains? "boot>" block)) :prologue exec 0>&- 1>&- 2>&-
   ./vm stop
   USE_INSTALL=0 ./vm start
   ./type-password «pass-show("bioctl")»

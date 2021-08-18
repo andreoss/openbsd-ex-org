@@ -941,9 +941,13 @@ chmod 1777 /mnt/tmp
 * Login into the new system
 Start VM without the installation media, and type cryptodisk password:
 #+name: start-vm
-#+begin_src shell :post assert!(*this*, '(a/contains? "boot>" block)) :prologue exec 0>&- 1>&- 2>&-
+#+begin_src shell :prologue exec 0>&- 1>&- 2>&-
   ./vm stop
   USE_INSTALL=0 ./vm start
+#+end_src
+
+#+name: type-bioctl-password
+#+begin_src shell :post assert!(*this*, '(a/contains? "boot>" block))
   ./type-password «pass-show("bioctl")»
 #+end_src
 

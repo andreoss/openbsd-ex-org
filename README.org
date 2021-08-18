@@ -35,7 +35,7 @@ Pass is used to managed passwords, and can be changed to something else (i.e lit
 
 *** On Nix
 See [[file:default.nix][default.nix]]
-#+begin_src nix tange: default.nix
+#+begin_src nix :tangle default.nix
   // TODO
 #+end_src
 
@@ -318,14 +318,14 @@ Generate password:
 
 * Installation media
 ** Download installation image
-#+name: download
+#+name: download-gnu/linux
 #+begin_src shell :eval (a/is-system? gnu/linux)
   wget --continue «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
 #+end_src
 
-#+name: download
+#+name: download-openbsd
 #+begin_src shell :eval (a/is-system? openbsd)
   ftp  «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
@@ -335,22 +335,22 @@ Generate password:
 ** Verify SHA256
 NOTE: The installation image is mutable, the checksum most likely won't match after the first boot.
 **** On GNU/Linux (verify SHA256)
-#+name: verify
+#+name: verify-gnu/linux
 #+begin_src shell :eval (a/is-system? gnu/linux)
   sha256sum --ignore-missing --check SHA256
 #+end_src
 
 **** On OpenBSD
-#+name: verify
+#+name: verify-openbsd
 #+begin_src shell :eval (a/is-system? openbsd)
   signify -C -x SHA256.sig «ref("install-image")»
 #+end_src
 
 ** (Optional) Patch installation image in order to enable serial port
-Less bug-prone than set-tty script.
 :PROPERTIES:
 :header-args: :eval no
 :END:
+Less bug-prone than set-tty script.
 **** On GNU/Linux
 :PROPERTIES:
 :header-args: :eval no
@@ -397,10 +397,10 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 #+end_src
 
 **** TODO On OpenBSD
-[[https://unix.stackexchange.com/questions/656910/how-to-change-the-installation-image-to-use-com-as-default-console][Discussion on SO]].
 :PROPERTIES:
 :header-args: :eval (a/is-system? 'openbsd)
 :END:
+[[https://unix.stackexchange.com/questions/656910/how-to-change-the-installation-image-to-use-com-as-default-console][Discussion on SO]].
 
 ** Script to control VM
 :PROPERTIES:
@@ -1236,7 +1236,7 @@ See [[https://man.openbsd.org/apmd][apmd(8)]].
 
 
 ** Readline
-#+begin_src fundamental :no_tangle /ssh:a@localhost#7922:~/.inputrc
+#+begin_src fundamental
   $include  /etc/inputrc
   set bell-style visible
 

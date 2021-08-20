@@ -34,9 +34,24 @@ Pass is used to managed passwords, and can be changed to something else (i.e lit
 | pass   |          |
 
 *** On Nix
-See [[file:default.nix][default.nix]]
-#+begin_src nix :tangle default.nix
-  // TODO
+See [[file:shell.nix][shell.nix]]
+#+begin_src nix :tangle shell.nix
+with import <nixpkgs> {};
+stdenv.mkDerivation {
+  name = "emacs-qemu-enviroment";
+  buildInputs = [
+    pkgs.gnutar
+    pkgs.wget
+    pkgs.qemu
+    pkgs.coreutils
+    pkgs.openssh
+    pkgs.rsync
+    pkgs.expect
+    pkgs.emacs-nox
+    pkgs.netcat-gnu
+    pkgs.inetutils
+  ];
+}
 #+end_src
 
 *** Current versions

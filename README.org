@@ -18,7 +18,7 @@ It's possible to build an entire system automatically by "publishing" this docum
 
 #+name: publication
 #+begin_src shell :eval no
-  emacs README.org --batch -l init.el -f org-html-export-to-html --kill
+  emacs --quick README.org --batch --load=init.el --funcall=org-md-export-to-markdown --kill
 #+end_src
 
 * Prerequisites

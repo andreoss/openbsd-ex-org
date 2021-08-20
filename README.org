@@ -508,7 +508,7 @@ Network with port forwarding:
       start)
           [ -e "$QEMU_PID" ] && >&2 echo "Already running" && exit 1
           (
-              setsid "$QEMU_COMMAND" "${QEMU_OPTS[@]}" & disown
+              "$QEMU_COMMAND" "${QEMU_OPTS[@]}" & disown
               PID=$!
               echo "$PID" > "$QEMU_PID"
           ) &

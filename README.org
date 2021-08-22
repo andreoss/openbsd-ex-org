@@ -85,7 +85,7 @@ This definitions are needed to provide dynamic values in `header-args`.
 
 For example:
 #+begin_example
-,#+begin_src shell :eval (a-is-system-p openbsd)
+,#+begin_src shell :eval (a-is-system-p 'openbsd)
 zzz
 ,#+end_src
 #+end_example
@@ -109,17 +109,15 @@ zzz
                                                                              "'"
                                                                              name))))))))
           (puthash name value a-ref-cache))))
-  (defmacro a-is-system-p (sys)
+  (defun a-is-system-p (sys)
     "Which is the host system-p. "
-    `(if (eq system-type ',sys) "yes" "no"))
+    (if (eq system-type sys) "yes" "no"))
   (defun a-host ()
     (concat "#!" default-directory "host-shell"))
   (defvar a-guest (concat "#!" default-directory "guest-shell"))
-  (defmacro a-sudo
-      (&optional
-       xs)
+  (defun a-sudo ()
     "Directory for executing as root. XS is sub directories. "
-    `(concat "/sudo::/" default-directory ,@xs))
+    (concat "/sudo::/" default-directory))
   (defvar a-remote
     (let ((user (a-ref "user-name"))
           (port (a-ref "ssh-port")))
@@ -362,14 +360,14 @@ Generate password:
 * Installation media
 ** Download installation image
 #+name: download-gnu/linux
-#+begin_src shell :eval (a-is-system-p gnu/linux) :post exists!(*this*, '(list (a-ref "install-image")))
+#+begin_src shell :eval (a-is-system-p 'gnu/linux) :post exists!(*this*, '(list (a-ref "install-image")))
   wget --continue «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
                   «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
                   «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
 #+end_src
 
 #+name: download-openbsd
-#+begin_src shell :eval (a-is-system-p openbsd)
+#+begin_src shell :eval (a-is-system-p 'openbsd)
   ftp  «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
@@ -379,13 +377,13 @@ Generate password:
 NOTE: The installation image is mutable, the checksum most likely won't match after the first boot.
 **** On GNU/Linux (verify SHA256)
 #+name: verify-gnu/linux
-#+begin_src shell :eval (a-is-system-p gnu/linux)
+#+begin_src shell :eval (a-is-system-p 'gnu/linux)
   sha256sum --ignore-missing --check SHA256
 #+end_src
 
 **** On OpenBSD
 #+name: verify-openbsd
-#+begin_src shell :eval (a-is-system-p openbsd)
+#+begin_src shell :eval (a-is-system-p 'openbsd)
   signify -C -x SHA256.sig «ref("install-image")»
 #+end_src
 
@@ -441,7 +439,7 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 
 **** TODO On OpenBSD
 :PROPERTIES:
-:header-args: :eval (a-is-system-p openbsd)
+:header-args: :eval (a-is-system-p 'openbsd)
 :END:
 [[https://unix.stackexchange.com/questions/656910/how-to-change-the-installation-image-to-use-com-as-default-console][Discussion on SO]].
 

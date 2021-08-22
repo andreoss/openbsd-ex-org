@@ -318,7 +318,7 @@ The following table is to parameterize the system.
 | domain        | Domain                   | cx                                  |
 | volume-size   | Volume size              | 16005464064B                        |
 |---------------+--------------------------+-------------------------------------|
-| time-zone     | Timezone                 | America-New_York                    |
+| time-zone     | Timezone                 | America/New_York                    |
 | root-password | Root's password          | toor                                |
 |---------------+--------------------------+-------------------------------------|
 | serial-port   | Tty Port                 | 1234                                |

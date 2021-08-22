@@ -884,7 +884,7 @@ Use custom layout, use entire volume as /.
 
 Install from `wd0`, which is USB installation media.
 #+begin_src tcl
-  expect "Which disk contains-p the install media?" {
+  expect "Which disk contains the install media?" {
       send "wd0\r"
   }
 #+end_src
@@ -911,7 +911,7 @@ Install everything but games.
 There is no SHA256.sig on the installation drive.
 This step will triger installation, thus "notimeout".
 #+begin_src tcl
-  expect "Directory does not contains-p SHA256.sig. Continue without verification?" {
+  expect "Continue without verification?" {
       send "yes\r"
       «notimeout»
   }

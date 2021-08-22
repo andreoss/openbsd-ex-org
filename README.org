@@ -167,6 +167,12 @@ Clean up this document from all /result/ blocks.
   spawn telnet localhost «ref('serial-port)»
   log_user 1
 #+end_src
+
+#+name: expect-prompt
+#+begin_src tcl
+  expect -re {(?n)^(\w+)?[#]\s}
+#+end_src
+
 *** Set com0 as the main tty
 Executed during boot of install.img
 #+begin_src shell  :tangle set-tty :shebang "#!/usr/bin/env expect"
@@ -202,7 +208,7 @@ Executed during boot of install.img
   «notimeout»
   send "\r";
   expect "(I)nstall, (U)pgrade, (A)utoinstall or (S)hell?" { send "S\r" }
-  expect "# "
+  «expect-prompt»
 #+end_src
 
 *** Execute guest shell command (after interactive was started).
@@ -211,12 +217,11 @@ Execute a shell command via COM.
   log_user 0
   set command [lindex $argv 0];
   «serial»
-  send "\r"
-  expect "# "
   log_user 1
-  send "$command\r"
+  send "$command"
+  send "\r"
   sleep 1
-  expect "# "
+  «expect-prompt»
 #+end_src
 
 A wrapper for the script above to use it as part of shebang.
@@ -934,7 +939,7 @@ Not ready to reboot yet. Go back to the shell to install UEFI.
 #+begin_src tcl
   expect "Exit to (S)hell, (H)alt or (R)eboot?" {
       send "S\r"
-      expect "#"
+      «expect-prompt»
   }
 #+end_src
 
@@ -1023,7 +1028,7 @@ Login as root via COM
   sleep 1
   expect ":"
   send "$password\r"
-  expect "# "
+  «expect-prompt»
   sleep 1
 #+end_src
 
@@ -1035,7 +1040,7 @@ Login as root via COM
 #+begin_src tcl :shebang "#!/usr/bin/env expect" :tangle-mode (identity #o755)
   «serial»
   send   "\r"
-  expect "# "
+  «expect-prompt»
   send   "adduser\r"
 #+end_src
 
@@ -1062,7 +1067,7 @@ New user
   expect "Login class"                { send "default\r" }
   expect "OK?"                        { send "y\r" }
   expect "Add another user?"          { send "n\r" }
-  expect "# "
+  «expect-prompt»
 #+end_src
 
 *** Add user

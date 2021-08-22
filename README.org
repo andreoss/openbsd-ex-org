@@ -4,7 +4,7 @@
 #+LANGUAGE: en
 #+KEYWORDS: openbsd emacs org-mode
 #+PROPERTY: header-args :eval yes :noweb yes eval :exports results
-#+PROPERTY: header-args:shell+ :shebang (a/host) :noweb yes :results output
+#+PROPERTY: header-args:shell+ :shebang (a-host) :noweb yes :results output
 #+HTML_HEAD: <style> body { background-color: #ffffea; } </style>
 #+LINK_UP:
 #+LINK_HOME: index.html
@@ -33,7 +33,7 @@ Supported OpenBSD versions:
 
 * Prerequisites
 The main requirements are QEMU, Expect & GNU Emacs.
-Pass is used to managed passwords, and can be changed to something else (i.e literals) in the macros below.
+Pass is used to managed passwords, and can be changed to something else (i.e literals) in the definitions below.
 
 ** Dependencies
 |--------+----------|
@@ -79,63 +79,61 @@ stdenv.mkDerivation {
   expect -version
 #+END_SRC
 
-** Lisp Macros & Functions
-*** Macros
-This macros are needed to provide dynamic values in `header-args`.
+** Lisp Variables & Functions
+*** Definitions
+This definitions are needed to provide dynamic values in `header-args`.
 
 For example:
-#+begin_example
-#+begin_src shell :eval (a/is-system? openbsd)
+#+begin_quote
+#+begin_src shell :eval (a-is-system? openbsd)
 zzz
 #+end_src
-#+end_example
+#+end_quote
 
-#+name: macros
+#+name: definitions
 #+begin_src emacs-lisp
-  (defvar a/ref-cache (make-hash-table :test 'equal))
-  (defun a/ref (name)
-    (if-let ((value (gethash name a/ref-cache)))
-        value
-      (let ((evaluated
-             (save-excursion
-               (org-babel-execute-src-block
-                nil
-                (org-babel-lob-get-info
-                 (list 'babel-call
-                       (list :call "ref-unquoted" :arguments (concat "'" name))))))))
-        (puthash name evaluated a/ref-cache)
-        evaluated
-        ))) (defmacro a/is-system? (sys)
+  (defvar a-ref-cache (make-hash-table :test 'equal))
+  (defun a-ref (name)
+    (or
+     (gethash name a-ref-cache)
+     (puthash name
+              (save-excursion
+                (org-babel-execute-src-block
+                 nil
+                 (org-babel-lob-get-info
+                  (list 'babel-call
+                        (list :call "ref-unquoted" :arguments (concat "'" name))))))
+              a-ref-cache)))
+  (defmacro a-is-system? (sys)
     "Which is the host system?. "
     `(if (eq system-type ',sys) "yes" "no"))
-  (defmacro a/host       ()
-    `(concat "#!" default-directory "host-shell"))
-  (setq a/guest
-        (concat "#!" default-directory "guest-shell"))
-  (defmacro a/sudo      (&optional xs)
+  (defun a-host       ()
+    (concat "#!" default-directory "host-shell"))
+  (defvar a-guest
+    (concat "#!" default-directory "guest-shell"))
+  (defmacro a-sudo      (&optional xs)
     "Directory for executing as root. XS is sub directories. "
     `(concat "/sudo::/" default-directory ,@xs))
-  (defvar a/remote
+  (defvar a-remote
     (let (
-          (user (a/ref "user-name"))
-          (port (a/ref "ssh-port")))
+          (user (a-ref "user-name"))
+          (port (a-ref "ssh-port")))
       (concat (format "/ssh:%s@localhost#%d:" user port))))
-  (defvar a/remote-sudo
+  (defvar a-remote-sudo
     (let (
-          (user (a/ref "user-name"))
-          (port (a/ref "ssh-port")))
+          (user (a-ref "user-name"))
+          (port (a-ref "ssh-port")))
       (concat (format "/ssh:%s@localhost#%d|sudo:" user port))))
-  (defun a/contains? (needle haystack)
-    (assert (cl-search needle haystack)))
-
-  (defun a/not-contains? (needle haystack)
-    (assert (not (cl-search needle haystack))))
+  (defun a-contains-p? (needle haystack)
+    (cl-assert (cl-search needle haystack)))
+  (defun a-not-contains-p? (needle haystack)
+    (cl-assert (not (cl-search needle haystack))))
         #+end_src
 
 *** Remove all result blocks
 Clean up this document from all /result/ blocks.
 #+BEGIN_SRC elisp
-  (defun a/ob-clear-all-results ()
+  (defun a-ob-clear-all-results ()
     "Clear all results in the buffer."
     (interactive)
     (save-excursion
@@ -232,12 +230,12 @@ This block is executed via ~Buffer settings~ & [[file:init.el]].
   (require 'ob-eshell)
   (require 'cl)
   (setq org-babel-eval-verbose nil)
-  «macros»
+  «definitions»
 #+END_SRC
 
 **** ANSI Colors in output
 #+BEGIN_SRC elisp
-  (defun a/babel-ansi-color-apply ()
+  (defun a-babel-ansi-color-apply ()
     (when-let ((beg (org-babel-where-is-src-block-result nil nil)))
       (save-excursion
         (goto-char beg)
@@ -245,7 +243,7 @@ This block is executed via ~Buffer settings~ & [[file:init.el]].
           (let ((end (org-babel-result-end))
                 (ansi-color-context-region nil))
             (ansi-color-apply-on-region beg end))))))
-  (add-hook 'org-babel-after-execute-hook 'a/babel-ansi-color-apply)
+  (add-hook 'org-babel-after-execute-hook 'a-babel-ansi-color-apply)
 #+END_SRC
 
 **** Shell wrapper to capture logs
@@ -270,8 +268,8 @@ All code with this shebang will log its stderr & stdout to ~$LOG~.
 
 *** Reference parameter from the table below
 #+name: exists!
-#+begin_src emacs-lisp :var block=0 contains='()
-  (let ((files(eval contains)))
+#+begin_src emacs-lisp :var block=0 contains-p='()
+  (let ((files(eval contains-p)))
     (dolist (file files)
       (assert (file-exists-p (expand-file-name file))))
     )
@@ -279,8 +277,8 @@ All code with this shebang will log its stderr & stdout to ~$LOG~.
 #+end_src
 
 #+name: assert!
-#+begin_src emacs-lisp :var block=0 contains='()
-  (eval contains)
+#+begin_src emacs-lisp :var block=0 contains-p='()
+  (eval contains-p)
   (format "%s" block)
 #+end_src
 Reference a value from [[Parameters]].
@@ -311,7 +309,7 @@ The following table is to parameterize the system.
 | domain        | Domain                   | cx                                  |
 | volume-size   | Volume size              | 16005464064B                        |
 |---------------+--------------------------+-------------------------------------|
-| time-zone     | Timezone                 | America/New_York                    |
+| time-zone     | Timezone                 | America-New_York                    |
 | root-password | Root's password          | toor                                |
 |---------------+--------------------------+-------------------------------------|
 | serial-port   | Tty Port                 | 1234                                |
@@ -341,7 +339,7 @@ Show password:
   (if (not (string-empty-p name))
       (string-trim
        (shell-command-to-string
-        (concat "pass show" " " (a/ref "hostname") "/" name))))
+        (concat "pass show" " " (a-ref "hostname") "/" name))))
 #+end_src
 
 Generate password:
@@ -350,20 +348,20 @@ Generate password:
   (if (not (string-empty-p name))
       (string-trim
        (shell-command-to-string
-        (concat "pass generate --no-symbols " (a/ref "hostname") "/" name " " length))))
+        (concat "pass generate --no-symbols " (a-ref "hostname") "/" name " " length))))
 #+end_src
 
 * Installation media
 ** Download installation image
 #+name: download-gnu/linux
-#+begin_src shell :eval (a/is-system? gnu/linux) :post exists!(*this*, '(list (a/ref "install-image")))
+#+begin_src shell :eval (a-is-system? gnu/linux) :post exists!(*this*, '(list (a-ref "install-image")))
   wget --continue «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
                   «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
                   «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
 #+end_src
 
 #+name: download-openbsd
-#+begin_src shell :eval (a/is-system? openbsd)
+#+begin_src shell :eval (a-is-system? openbsd)
   ftp  «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
@@ -373,13 +371,13 @@ Generate password:
 NOTE: The installation image is mutable, the checksum most likely won't match after the first boot.
 **** On GNU/Linux (verify SHA256)
 #+name: verify-gnu/linux
-#+begin_src shell :eval (a/is-system? gnu/linux)
+#+begin_src shell :eval (a-is-system? gnu/linux)
   sha256sum --ignore-missing --check SHA256
 #+end_src
 
 **** On OpenBSD
 #+name: verify-openbsd
-#+begin_src shell :eval (a/is-system? openbsd)
+#+begin_src shell :eval (a-is-system? openbsd)
   signify -C -x SHA256.sig «ref("install-image")»
 #+end_src
 
@@ -410,32 +408,32 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
   zgrep UFS_FS /proc/config.gz
 #+end_src
 
-#+begin_src shell :dir (a/sudo)
+#+begin_src shell :dir (a-sudo)
   losetup --partscan /dev/loop0 install69.img
 #+end_src
 
-#+begin_src shell :dir (a/sudo)
+#+begin_src shell :dir (a-sudo)
   sfdisk -l /dev/loop0
 #+end_src
 
-#+begin_src shell :dir (a/sudo)
+#+begin_src shell :dir (a-sudo)
   mkdir -p /tmp/install
   mount -t ufs -o ufstype=44bsd,rw /dev/loop0p4 /tmp/install
 #+end_src
 
-#+begin_src shell :dir (a/sudo)
+#+begin_src shell :dir (a-sudo)
   echo "stty com0 115200" >> /tmp/install/etc/boot.conf
   echo "set tty com0"     >> /tmp/install/etc/boot.conf
 #+end_src
 
-#+begin_src shell :dir (a/sudo)
+#+begin_src shell :dir (a-sudo)
   umount /tmp/install
   losetup --detach-all
 #+end_src
 
 **** TODO On OpenBSD
 :PROPERTIES:
-:header-args: :eval (a/is-system? 'openbsd)
+:header-args: :eval (a-is-system? 'openbsd)
 :END:
 [[https://unix.stackexchange.com/questions/656910/how-to-change-the-installation-image-to-use-com-as-default-console][Discussion on SO]].
 
@@ -580,7 +578,7 @@ This BIOS does not support CD, this is why we are using a USB image.
 ** Prepare image
 *** Main volume
 #+name: qemu-img
-#+begin_src shell :post assert!(*this*, '(a/contains? "Formatting" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "Formatting" block))
   qemu-img create -f «ref("image-format")» «ref("system-image")» «ref("volume-size")»
 #+end_src
 
@@ -599,39 +597,39 @@ Start VM:
 #+end_src
 
 #+NAME: boot-install
-#+begin_src shell :post assert!(*this*, '(a/contains? "switching console to com0" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "switching console to com0" block))
   ./set-tty
 #+end_src
 
 ** Start interactive shell
 #+NAME: start-shell
-#+begin_src shell :post assert!(*this*, '(a/contains? "#" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "#" block))
 ./start-shell
 #+end_src
 
 ** Check available disks (sd0 & wd0 should present)
 Print names of available disks:
 #+name: check-disknames
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "hw.disknames=" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "hw.disknames=" block))
   sysctl hw.disknames
 #+end_src
 
 You should see the target image being attached as ~sd0~.
 #+name: check-sd0
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "sd0 at" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "sd0 at" block))
   dmesg | grep sd[0-9]
 #+end_src
 
 Installation media should be available as ~wd0~ (if installing from img file)
 #+name: check-wd0
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "wd0 at" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "wd0 at" block))
   dmesg | grep wd[0-9]
 #+end_src
 
 ** Prepare disk
 *** Create devices for sd0 and sd1
 #+name: create-devices
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "sd0a" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "sd0a" block))
   cd /dev
   sh MAKEDEV sd0
   sh MAKEDEV sd1
@@ -641,26 +639,26 @@ Installation media should be available as ~wd0~ (if installing from img file)
 
 *** Remove disk content
 #+name: shred-gpt
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "bytes transferred" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "bytes transferred" block))
   dd if=/dev/zero of=/dev/rsd0c bs=1m count=100
 #+end_src
 
 *** Run fdisk
 #+name: fdisk-sd0
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "Writing GPT." block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "Writing GPT." block))
   fdisk -iy -g -b 960 sd0
 #+end_src
 
 The same for keydisk (Optional)
 #+name: fdisk-sd1
-#+begin_src shell :shebang (eval 'a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no")
+#+begin_src shell :shebang (eval 'a-guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no")
   fdisk -iy -g -b 960 sd1
 #+end_src
 
 *** Disklabel
 Create one RAID partition using entire disk space.
 #+name: disklabel-sd0
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "partitions" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "partitions" block))
   {
       echo a a
       echo
@@ -674,7 +672,7 @@ Create one RAID partition using entire disk space.
 
 Prepare keydisk (Optional)
 #+name: Disklabel on sd1
-#+begin_src shell :shebang (eval 'a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
+#+begin_src shell :shebang (eval 'a-guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
   {
       echo a a
       echo
@@ -690,24 +688,24 @@ Prepare keydisk (Optional)
 **** Put passphase in a file
 NOTE: New line at EOF is required.
 #+name: pass-file
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "#" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "#" block))
   echo «pass-show("bioctl")» > /tmp/.passphrase
 #+end_src
 
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "-rw-------" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "-rw-------" block))
   chmod 0600 /tmp/.passphrase
   ls -l /tmp/.passphrase
 #+end_src
 
 Initialize RAID on sd0
 #+name: bioctl-passphrase
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "softraid0:" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "softraid0:" block))
   bioctl -p /tmp/.passphrase -c C -l sd0a softraid0
 #+end_src
 
 Using keydisk (Optional)
 #+name: bioctl-keydisk
-#+begin_src shell :shebang (eval 'a/guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
+#+begin_src shell :shebang (eval 'a-guest) :eval (if (org-entry-get nil "use-key-disk" t) "yes" "no") :results verbatim
   bioctl -k sd1a -c C -l sd0a softraid0
 #+end_src
 
@@ -880,7 +878,7 @@ Use custom layout, use entire volume as /.
 
 Install from `wd0`, which is USB installation media.
 #+begin_src tcl
-  expect "Which disk contains the install media?" {
+  expect "Which disk contains-p the install media?" {
       send "wd0\r"
   }
 #+end_src
@@ -907,7 +905,7 @@ Install everything but games.
 There is no SHA256.sig on the installation drive.
 This step will triger installation, thus "notimeout".
 #+begin_src tcl
-  expect "Directory does not contain SHA256.sig. Continue without verification?" {
+  expect "Directory does not contains-p SHA256.sig. Continue without verification?" {
       send "yes\r"
       «notimeout»
   }
@@ -936,7 +934,7 @@ Not ready to reboot yet. Go back to the shell to install UEFI.
 
 *** Start setup
 #+name: setup-dialog
-#+begin_src shell :post assert!(*this*, '(a/contains? "CONGRATULATIONS!" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "CONGRATULATIONS!" block))
   ./setup-dialog
 #+end_src
 
@@ -944,26 +942,26 @@ Not ready to reboot yet. Go back to the shell to install UEFI.
 *** Mount partition & copy EFI
 #+name: Format UEFI Parition
 #+name: format-uefi-partition
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "block device" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "block device" block))
   newfs_msdos /dev/sd0i
 #+end_src
 
 #+name: copy-uefi
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "/mnt2 type msdos" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "/mnt2 type msdos" block))
   mount /dev/sd0i /mnt2
   cp /mnt/usr/mdec/BOOTX64.EFI /mnt2/efi/boot/
   mount
   umount /dev/sd0i
 #+end_src
 ** Mount /tmp as mfs
-#+begin_src shell :shebang (eval 'a/guest)
+#+begin_src shell :shebang (eval 'a-guest)
 echo 'swap /tmp mfs rw,nodev,nosuid,-s=300m 0 0' >> /mnt/etc/fstab
 chmod 1777 /mnt/tmp
 #+end_src
 
 ** Reboot
 #+name: reboot after install
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "#" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "#" block))
   halt
 #+end_src
 
@@ -983,13 +981,13 @@ Start VM without the installation media, and type cryptodisk password:
 #+end_src
 
 #+name: type-bioctl-password
-#+begin_src shell :post assert!(*this*, '(a/contains? "boot>" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "boot>" block))
   ./type-password «pass-show("bioctl")»
 #+end_src
 
 Login as root via COM
 #+name: login-as-root
-#+begin_src shell :post assert!(*this*, '(a/contains? "Welcome to OpenBSD" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "Welcome to OpenBSD" block))
   ./login root «ref("root-password")»
 #+end_src
 
@@ -1063,7 +1061,7 @@ New user
 
 *** Add user
 #+name: add-user
-#+begin_src shell :post assert!(*this*, '(a/contains? "Added user" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "Added user" block))
   ./adduser
 #+end_src
 
@@ -1072,7 +1070,7 @@ Disable password promt for staff group.
 See [[https://man.openbsd.org/doas.conf.5][doas.conf(5)]]
 
 #+name: configure-doas
-#+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "#" block))
+#+begin_src shell :shebang (eval 'a-guest) :post assert!(*this*, '(a-contains-p? "#" block))
   echo permit nopass :«ref("user-group")»| tee /etc/doas.conf
 #+end_src
 
@@ -1080,52 +1078,52 @@ See [[https://man.openbsd.org/doas.conf.5][doas.conf(5)]]
 Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 *** Backup original config
     #+name: backup-sshd_config
-#+begin_src shell :shebang (eval 'a/guest)
+#+begin_src shell :shebang (eval 'a-guest)
   cp /etc/ssh/sshd_config{,.orig}
 #+end_src
 
 *** Disable banner
 #+name: configure-sshd-1
-#+begin_src shell :shebang (eval 'a/guest)
+#+begin_src shell :shebang (eval 'a-guest)
   perl -i -pE 's/[#]?(Banner)                 \s+ \S+/$1 none/x' /etc/ssh/sshd_config
   perl -i -pE 's/[#]?(PrintMotd)              \s+ \S+/$1 no/x' /etc/ssh/sshd_config
 #+end_src
 
 *** Disable/enable X11 Forwading
 #+name: configure-sshd-2
-#+begin_src shell :shebang (eval 'a/guest)
+#+begin_src shell :shebang (eval 'a-guest)
   perl -i -pE 's/[#]?(X11Forwarding)          \s+ \S+/$1 yes/x' /etc/ssh/sshd_config
 #+end_src
 
 *** Disable password authentication & root login
     #+name: configure-sshd33
-#+begin_src shell :shebang (eval 'a/guest)
+#+begin_src shell :shebang (eval 'a-guest)
   perl -i -pE 's/[#]?(PasswordAuthentication) \s+ \S+/$1 no/x' /etc/ssh/sshd_config
   perl -i -pE 's/[#]?(PermitRootLogin)        \s+ \S+/$1 no/x' /etc/ssh/sshd_config
 #+end_src
 
 *** Enable [[https://man.openbsd.org/sshd][sshd(8)]]
 #+name: enable-sshd
-#+begin_src shell :shebang (eval 'a/guest)
+#+begin_src shell :shebang (eval 'a-guest)
   rcctl enable sshd
   rcctl restart sshd
 #+end_src
 
 *** Add RSA key
 #+name: ssh-key
-#+begin_src emacs-lisp :post assert!(*this*, '(a/not-contains? "The agent has no identities." block))
+#+begin_src emacs-lisp :post assert!(*this*, '(a-not-contains-p? "The agent has no identities." block))
   (string-trim (shell-command-to-string "ssh-add -L"))
 #+end_src
 
 #+name: add-ssh-key
-#+begin_src shell :shebang (eval 'a/guest)
-  echo «ssh-key()» | doas -u a tee /home/a/.ssh/authorized_keys
+#+begin_src shell :shebang (eval 'a-guest)
+  echo «ssh-key()» | doas -u a tee /home/a-.ssh/authorized_keys
 #+end_src
 
 *** Enable network
 **** Use rcctl & /etc/hostname.vio0 instead of dhclient
 #+name: Enable sshd
-#+begin_src shell :shebang (eval 'a/guest)
+#+begin_src shell :shebang (eval 'a-guest)
   {
       echo "-inet6"
       echo "dhcp"
@@ -1134,24 +1132,24 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 #+end_src
 
 #+name: netstart
-#+begin_src shell :shebang (eval 'a/guest)
+#+begin_src shell :shebang (eval 'a-guest)
   sh /etc/netstart
 #+end_src
 
 #+name: temporary-dns
-#+begin_src shell :shebang (eval 'a/guest)
+#+begin_src shell :shebang (eval 'a-guest)
   perl -i -pE 's/(nameserver) \s+ \S+/$1 8.8.8.8/x' /etc/resolv.conf
 #+end_src
 
 *** Add fingerprint to [[~/.ssh/known_hosts][known_hosts]]
 #+name: ssh-keyscan
-#+begin_src shell :shebang (a/host)
+#+begin_src shell :shebang (a-host)
   ssh-keyscan -p «ref("ssh-port")» -H localhost | tee -a ~/.ssh/known_hosts
 #+end_src
 
 * Post-install (SSH)
 :PROPERTIES:
-:header-args: :dir (eval 'a/remote) :session *post-install* :noweb yes eval :exports both :cache no
+:header-args: :dir (eval 'a-remote) :session *post-install* :noweb yes eval :exports both :cache no
 :END:
 ** Configure sudo
 Tramp does not support [[https://man.openbsd.org/doas][doas(8)]].
@@ -1161,7 +1159,7 @@ Let's install & configure sudo with the same permissions as doas.
 #+call: pkg_add("sudo--")
 
 #+name: sudoers
-#+begin_src shell :var group=(a/ref "user-group")
+#+begin_src shell :var group=(a-ref "user-group")
   echo "%$group ALL=(ALL) NOPASSWD: SETENV: ALL" | doas tee /etc/sudoers
 #+end_src
 
@@ -1200,7 +1198,7 @@ Let's install & configure sudo with the same permissions as doas.
 
 * Configuration
 :PROPERTIES:
-:header-args: :dir (eval 'a/remote) :session *configuration* :noweb yes :exports both :cache no
+:header-args: :dir (eval 'a-remote) :session *configuration* :noweb yes :exports both :cache no
 :END:
 ** Install packages
 Unlock database in case it's locked (see pkg_check(8)).
@@ -1236,7 +1234,7 @@ Install a package (see pkg_add(8)).
   doas cp /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js{,.back}
   ftp https://raw.githubusercontent.com/pyllyukko/user.js/master/user.js
   grep -v captive-portal user.js | doas tee -a /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js >/dev/null
-  ftp https://gist.githubusercontent.com/andreoss/91a0d21dc99bd9eae8bce5d573fb5a00/raw/64d0926caf60103efab55ea4cc4150d5d86b369a/ua.js
+  ftp https://gist.githubusercontent.com/andreoss/91a0d21dc99bd9eae8bce5d573fb5a00/raw/64d0926caf60103efab55ea4cc4150d5d86b369a-ua.js
   cat ua.js | doas tee -a /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js
   doas sed -i s/user_pref/pref/ /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js
   rm *.js
@@ -1328,7 +1326,7 @@ Restart network
 #+end_src
 
 
-Now resolv.conf should contain local DNS server
+Now resolv.conf should contains-p local DNS server
 #+begin_src shell
   grep nameserver /etc/resolv.conf
 #+end_src
@@ -1353,7 +1351,7 @@ echo "DisplayManager.*.autoLogin: «ref('user-name)»" | doas tee -a /etc/X11/xe
 
 #+call: pkg_add("ratpoison")
 
-#+begin_src shell :post assert!(*this*, '(a/contains? "/usr/local/bin/ratpoison" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "/usr/local/bin/ratpoison" block))
 which ratpoison
 #+end_src
 
@@ -1370,7 +1368,7 @@ echo "exec ratpoison" > ~/.xsession
 ***** Complier
 #+call: pkg_add("sbcl--threads")
 ***** Quicklisp
-https://www.quicklisp.org/beta/
+https://www.quicklisp.org/beta-
 
 #+begin_src shell
  curl -O https://beta.quicklisp.org/quicklisp.lisp
@@ -1415,7 +1413,7 @@ Add Quicklisp to .sbclrc
  sbcl --non-interactive --eval "(ql:quickload :stumpwm)"
 #+end_src
 
-#+begin_src shell :dir (eval 'a/remote)
+#+begin_src shell :dir (eval 'a-remote)
 git clone https://github.com/andreoss/.stumpwm.d
 #+end_src
 
@@ -1427,7 +1425,7 @@ git clone https://github.com/andreoss/.stumpwm.d
 
 #+call: pkg_add("rxvt-unicode")
 
-#+begin_src shell :post assert!(*this*, '(a/contains? "/usr/local/bin/urxvt" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "/usr/local/bin/urxvt" block))
 which urxvt
 #+end_src
 
@@ -1462,7 +1460,7 @@ ln -s ~/.config/inputrc ~/.inputrc
 ** (Optional) Migrate current configuration
 
 #+call: pkg_add("rsync--")
-#+begin_src shell :post assert!(*this*, '(a/contains? "/usr/local/bin/rsync" block))
+#+begin_src shell :post assert!(*this*, '(a-contains-p? "/usr/local/bin/rsync" block))
 which rsync
 #+end_src
 

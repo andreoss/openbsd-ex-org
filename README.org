@@ -85,7 +85,7 @@ This definitions are needed to provide dynamic values in `header-args`.
 
 For example:
 #+begin_quote
-#+begin_src shell :eval (a-is-system? openbsd)
+#+begin_src shell :eval (a-is-system-p openbsd)
 zzz
 #+end_src
 #+end_quote
@@ -94,40 +94,46 @@ zzz
 #+begin_src emacs-lisp
   (defvar a-ref-cache (make-hash-table :test 'equal))
   (defun a-ref (name)
-    (or
-     (gethash name a-ref-cache)
-     (puthash name
-              (save-excursion
-                (org-babel-execute-src-block
-                 nil
-                 (org-babel-lob-get-info
-                  (list 'babel-call
-                        (list :call "ref-unquoted" :arguments (concat "'" name))))))
-              a-ref-cache)))
-  (defmacro a-is-system? (sys)
-    "Which is the host system?. "
+    (or (gethash name a-ref-cache)
+        (let ((value
+               (save-excursion
+                 (org-babel-execute-src-block nil
+                                              (org-babel-lob-get-info
+                                               (list
+                                                                           'babel-call
+                                                                           (list
+                                                                            :call
+                                                                            "ref-unquoted"
+                                                                            :arguments
+                                                                            (concat
+                                                                             "'"
+                                                                             name))))))))
+          (puthash name value a-ref-cache))))
+  (defmacro a-is-system-p (sys)
+    "Which is the host system-p. "
     `(if (eq system-type ',sys) "yes" "no"))
-  (defun a-host       ()
+  (defun a-host ()
     (concat "#!" default-directory "host-shell"))
-  (defvar a-guest
-    (concat "#!" default-directory "guest-shell"))
-  (defmacro a-sudo      (&optional xs)
+  (defvar a-guest (concat "#!" default-directory "guest-shell"))
+  (defmacro a-sudo
+      (&optional
+       xs)
     "Directory for executing as root. XS is sub directories. "
     `(concat "/sudo::/" default-directory ,@xs))
   (defvar a-remote
-    (let (
-          (user (a-ref "user-name"))
+    (let ((user (a-ref "user-name"))
           (port (a-ref "ssh-port")))
       (concat (format "/ssh:%s@localhost#%d:" user port))))
   (defvar a-remote-sudo
-    (let (
-          (user (a-ref "user-name"))
+    (let ((user (a-ref "user-name"))
           (port (a-ref "ssh-port")))
       (concat (format "/ssh:%s@localhost#%d|sudo:" user port))))
   (defun a-contains-p? (needle haystack)
-    (cl-assert (cl-search needle haystack)))
+    (cl-assert
+     (cl-search needle haystack)))
   (defun a-not-contains-p? (needle haystack)
-    (cl-assert (not (cl-search needle haystack))))
+    (cl-assert
+     (not (cl-search needle haystack))))
         #+end_src
 
 *** Remove all result blocks
@@ -233,6 +239,9 @@ This block is executed via ~Buffer settings~ & [[file:init.el]].
   «definitions»
 #+END_SRC
 
+#+RESULTS: startup
+: a-not-contains-p\?
+
 **** ANSI Colors in output
 #+BEGIN_SRC elisp
   (defun a-babel-ansi-color-apply ()
@@ -269,10 +278,11 @@ All code with this shebang will log its stderr & stdout to ~$LOG~.
 *** Reference parameter from the table below
 #+name: exists!
 #+begin_src emacs-lisp :var block=0 contains-p='()
-  (let ((files(eval contains-p)))
+  (let ((files
+         (eval
+          contains-p)))
     (dolist (file files)
-      (assert (file-exists-p (expand-file-name file))))
-    )
+      (assert (file-exists-p (expand-file-name file)))))
   (format "%s" block)
 #+end_src
 
@@ -285,7 +295,8 @@ Reference a value from [[Parameters]].
 
 #+NAME: ref-unquoted
 #+BEGIN_SRC emacs-lisp :var  name="" table=references
-  (let ((key (if (symbolp name) (symbol-name name) name)))
+  (let ((key (if (symbolp name)
+                 (symbol-name name) name)))
     (nth 2 (assoc key table)))
 #+END_SRC
 
@@ -337,31 +348,28 @@ Show password:
 #+name: pass-show
 #+begin_src emacs-lisp :var name=""
   (if (not (string-empty-p name))
-      (string-trim
-       (shell-command-to-string
-        (concat "pass show" " " (a-ref "hostname") "/" name))))
+      (string-trim (shell-command-to-string (concat "pass show" " " (a-ref "hostname") "/" name))))
 #+end_src
 
 Generate password:
 #+name: pass-gen
 #+begin_src emacs-lisp :var name="" length="8"
   (if (not (string-empty-p name))
-      (string-trim
-       (shell-command-to-string
-        (concat "pass generate --no-symbols " (a-ref "hostname") "/" name " " length))))
+      (string-trim (shell-command-to-string (concat "pass generate --no-symbols " (a-ref "hostname")
+                                                    "/" name " " length))))
 #+end_src
 
 * Installation media
 ** Download installation image
 #+name: download-gnu/linux
-#+begin_src shell :eval (a-is-system? gnu/linux) :post exists!(*this*, '(list (a-ref "install-image")))
+#+begin_src shell :eval (a-is-system-p gnu/linux) :post exists!(*this*, '(list (a-ref "install-image")))
   wget --continue «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
                   «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
                   «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
 #+end_src
 
 #+name: download-openbsd
-#+begin_src shell :eval (a-is-system? openbsd)
+#+begin_src shell :eval (a-is-system-p openbsd)
   ftp  «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
        «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
@@ -371,13 +379,13 @@ Generate password:
 NOTE: The installation image is mutable, the checksum most likely won't match after the first boot.
 **** On GNU/Linux (verify SHA256)
 #+name: verify-gnu/linux
-#+begin_src shell :eval (a-is-system? gnu/linux)
+#+begin_src shell :eval (a-is-system-p gnu/linux)
   sha256sum --ignore-missing --check SHA256
 #+end_src
 
 **** On OpenBSD
 #+name: verify-openbsd
-#+begin_src shell :eval (a-is-system? openbsd)
+#+begin_src shell :eval (a-is-system-p openbsd)
   signify -C -x SHA256.sig «ref("install-image")»
 #+end_src
 
@@ -433,7 +441,7 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 
 **** TODO On OpenBSD
 :PROPERTIES:
-:header-args: :eval (a-is-system? 'openbsd)
+:header-args: :eval (a-is-system-p openbsd)
 :END:
 [[https://unix.stackexchange.com/questions/656910/how-to-change-the-installation-image-to-use-com-as-default-console][Discussion on SO]].
 

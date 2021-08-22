@@ -84,11 +84,11 @@ stdenv.mkDerivation {
 This definitions are needed to provide dynamic values in `header-args`.
 
 For example:
-#+begin_quote
-#+begin_src shell :eval (a-is-system-p openbsd)
-zzz
-#+end_src
-#+end_quote
+#+begin_example
+,#+begin_src shell :eval (a-is-system-p openbsd)
+,zzz
+,#+end_src
+#+end_example
 
 #+name: definitions
 #+begin_src emacs-lisp

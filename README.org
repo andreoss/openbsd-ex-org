@@ -21,6 +21,14 @@ It's possible to build an entire system automatically by "publishing" this docum
   emacs --quick README.org --batch --load=init.el --funcall=org-md-export-to-markdown --kill
 #+end_src
 
+Supported OpenBSD versions:
+1. 6.9
+2. 7.0 (Snapshot)
+   In oreder to build 7.0 image change this parameters
+   | release       | Release                  | snapshots                           |
+   | install-image | Installation image       | install70.img                       |
+   | system-image  | Result image             | system70.img                        |
+
 * Prerequisites
 The main requirements are QEMU, Expect & GNU Emacs.
 Pass is used to managed passwords, and can be changed to something else (i.e literals) in the macros below.
@@ -50,6 +58,7 @@ stdenv.mkDerivation {
     pkgs.emacs-nox
     pkgs.netcat-gnu
     pkgs.inetutils
+    pkgs.pass
   ];
 }
 #+end_src
@@ -117,6 +126,8 @@ zzz
   (defun a/contains? (needle haystack)
     (assert (cl-search needle haystack)))
 
+  (defun a/not-contains? (needle haystack)
+    (assert (not (cl-search needle haystack))))
         #+end_src
 
 *** Remove all result blocks
@@ -256,12 +267,21 @@ All code with this shebang will log its stderr & stdout to ~$LOG~.
 #+end_src
 
 *** Reference parameter from the table below
-Reference a value from [[Parameters]].
+#+name: exists!
+#+begin_src emacs-lisp :var block=0 contains='()
+  (let ((files(eval contains)))
+    (dolist (file files)
+      (assert (file-exists-p (expand-file-name file))))
+    )
+  (format "%s" block)
+#+end_src
+
 #+name: assert!
 #+begin_src emacs-lisp :var block=0 contains='()
   (eval contains)
   (format "%s" block)
 #+end_src
+Reference a value from [[Parameters]].
 
 #+NAME: ref-unquoted
 #+BEGIN_SRC emacs-lisp :var  name="" table=references
@@ -334,10 +354,10 @@ Generate password:
 * Installation media
 ** Download installation image
 #+name: download-gnu/linux
-#+begin_src shell :eval (a/is-system? gnu/linux)
+#+begin_src shell :eval (a/is-system? gnu/linux) :post exists!(*this*, '(list (a/ref "install-image")))
   wget --continue «ref("mirror")»/«ref("release")»/«ref("arch")»/«ref("install-image")» \
-       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
-       «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
+                  «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256                 \
+                  «ref("mirror")»/«ref("release")»/«ref("arch")»/SHA256.sig
 #+end_src
 
 #+name: download-openbsd
@@ -622,7 +642,6 @@ Installation media should be available as ~wd0~ (if installing from img file)
 #+begin_src shell :shebang (eval 'a/guest) :post assert!(*this*, '(a/contains? "bytes transferred" block))
   dd if=/dev/zero of=/dev/rsd0c bs=1m count=100
 #+end_src
-
 
 *** Run fdisk
 #+name: fdisk-sd0
@@ -1092,7 +1111,7 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 
 *** Add RSA key
 #+name: ssh-key
-#+begin_src emacs-lisp
+#+begin_src emacs-lisp :post assert!(*this*, '(a/not-contains? "The agent has no identities." block))
   (string-trim (shell-command-to-string "ssh-add -L"))
 #+end_src
 
@@ -1439,6 +1458,7 @@ ln -s ~/.config/inputrc ~/.inputrc
 #+call: pkg_add("coreutils")
 
 ** (Optional) Migrate current configuration
+
 #+call: pkg_add("rsync--")
 #+begin_src shell :post assert!(*this*, '(a/contains? "/usr/local/bin/rsync" block))
 which rsync
@@ -1456,7 +1476,6 @@ rsync -ahc -e 'ssh -p «ref('ssh-port)»' ~/.gnupg localhost:
 #+end_src
 
 *** Pass
-
 #+call: pkg_add("pass-otp")
 
 #+begin_src shell :dir ~ :noweb yes :session no

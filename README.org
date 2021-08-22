@@ -24,7 +24,9 @@ It's possible to build an entire system automatically by "publishing" this docum
 Supported OpenBSD versions:
 1. 6.9
 2. 7.0 (Snapshot)
-   In oreder to build 7.0 image change this parameters
+
+   In order to build 7.0 image change this parameters
+
    | release       | Release                  | snapshots                           |
    | install-image | Installation image       | install70.img                       |
    | system-image  | Result image             | system70.img                        |

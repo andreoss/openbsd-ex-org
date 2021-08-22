@@ -86,7 +86,7 @@ This definitions are needed to provide dynamic values in `header-args`.
 For example:
 #+begin_example
 ,#+begin_src shell :eval (a-is-system-p openbsd)
-,zzz
+zzz
 ,#+end_src
 #+end_example
 

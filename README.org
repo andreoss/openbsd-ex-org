@@ -170,7 +170,7 @@ Clean up this document from all /result/ blocks.
 
 #+name: expect-prompt
 #+begin_src tcl
-  expect -re {(?n)^(\w+)?[#]\s}
+  expect -re {(?n)(?:[a-z]+)?[#]\s}
 #+end_src
 
 *** Set com0 as the main tty

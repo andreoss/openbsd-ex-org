@@ -214,19 +214,21 @@ Executed during boot of install.img
 *** Execute guest shell command (after interactive was started).
 Execute a shell command via COM.
 #+begin_src shell :tangle execute :shebang "#!/usr/bin/env expect"
-  log_user 0
   set command [lindex $argv 0];
   «serial»
-  log_user 1
-  send "$command"
-  send "\r"
-  sleep 1
+  «timeout»
+  set send_human {.1 .3 1 .05 2}
+  send -h "$command"
+  send -h "\r"
+  after 1000 set stop_wait &
+  vwait stop_wait
+  unset stop_wait
   «expect-prompt»
 #+end_src
 
 A wrapper for the script above to use it as part of shebang.
 #+begin_src shell :tangle guest-shell
-  ./execute "$(sed 1d "$1")"
+  ./execute "$(sed /^#!/d "$1")"
 #+end_src
 
 ** Emacs configuration
@@ -270,7 +272,6 @@ All code with this shebang will log its stderr & stdout to ~$LOG~.
 #+name: host-shell
 #+begin_src shell :tangle host-shell :shebang "#!/bin/bash" :eval no :noweb yes
   «log»
-  set -x
   if [ "$LOG" ]
   then
       exec 1> >(tee -a "$LOG") 2> >(tee -a "$LOG" >&2)
@@ -749,19 +750,6 @@ Do not configure network interfaces.
 #+begin_src tcl
   expect "Which network interface do you wish to configure?" {
       send "done\r"
-  }
-#+end_src
-
-No more interfaces to configure.
-#+begin_src tcl
-  expect "Which network interface do you wish to configure?" {
-      send "\r"
-  }
-#+end_src
-
-#+begin_src tcl
-  expect "Default IPv4 route?" {
-      send "none\r"
   }
 #+end_src
 

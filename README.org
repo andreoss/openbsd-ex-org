@@ -1115,8 +1115,8 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
 #+end_src
 
 #+name: add-ssh-key
-#+begin_src shell :shebang (eval 'a-guest)
-  echo «ssh-key()» | doas -u a tee /home/a-.ssh/authorized_keys
+#+begin_src shell :shebang (eval 'a-guest) :noweb yes :var user=ref-unquoted('user-name)
+  echo «ssh-key()» | doas -u a tee /home/$user/.ssh/authorized_keys
 #+end_src
 
 *** Enable network

@@ -811,7 +811,7 @@ No need to add a user at this step.
   }
 #+end_src
 
-#+begin_src tcl
+#+begin_src tcl :tangle no
   expect "Allow root ssh login?" {
       send "no\r"
   }

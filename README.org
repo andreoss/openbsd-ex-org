@@ -1014,7 +1014,7 @@ Login as root via COM
   expect "login:"
   send "$user\r"
   sleep 1
-  expect ":"
+  expect "Password:"
   send "$password\r"
   «expect-prompt»
   sleep 1

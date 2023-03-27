@@ -1260,7 +1260,7 @@ See [[https://man.openbsd.org/apmd][apmd(8)]].
   doas mkdir /etc/apm
   echo "#!/bin/sh"         | doas tee  /etc/apm/suspend
   echo "pkill -USR1 xidle" | doas tee -a  /etc/apm/suspend
-  doas chmod +x /etc/apm/syspend
+  doas chmod +x /etc/apm/suspend
 #+end_src
 
 #+begin_src shell

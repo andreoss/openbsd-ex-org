@@ -420,7 +420,7 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 #+end_src
 
 #+begin_src shell :dir (a-sudo)
-  losetup --partscan /dev/loop0 install69.img
+  losetup --partscan /dev/loop0 install72.img
 #+end_src
 
 #+begin_src shell :dir (a-sudo)

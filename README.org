@@ -1169,7 +1169,7 @@ Let's install & configure sudo with the same permissions as doas.
 ** Disable com0 at boot
 #+name: disable-com0
 #+begin_src shell
-  sudo perl -i.bak -nE 'print unless /com0/' /etc/boot.conf
+  doas perl -i.bak -nE 'print unless /com0/' /etc/boot.conf
 #+end_src
 ** wscons
    #+begin_src shell

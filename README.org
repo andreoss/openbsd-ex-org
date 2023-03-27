@@ -24,12 +24,6 @@ It's possible to build an entire system automatically by "publishing" this docum
 Supported OpenBSD versions:
 1. 7.2
 
-   In order to build 7.0 image change this parameters
-
-   | release       | Release                  | snapshots                           |
-   | install-image | Installation image       | install70.img                       |
-   | system-image  | Result image             | system70.img                        |
-
 * Prerequisites
 The main requirements are QEMU, Expect & GNU Emacs.
 Pass is used to managed passwords, and can be changed to something else (i.e literals) in the definitions below.

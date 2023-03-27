@@ -450,7 +450,7 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 
 ** Script to control VM
 :PROPERTIES:
-:header-args:shell: :tangle vm :eval no :tangle-mode (identity #o755) :shebang "#!/bin/bash"
+:header-args:shell: :tangle vm :eval no :tangle-mode (identity #o755) :shebang "#!/usr/bin/env bash"
 :END:
 Wait until port is open:
 #+begin_src shell

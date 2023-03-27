@@ -269,7 +269,7 @@ All code with this shebang will log its stderr & stdout to ~$LOG~.
 #+end_src
 
 #+name: host-shell
-#+begin_src shell :tangle host-shell :shebang "#!/bin/bash" :eval no :noweb yes
+#+begin_src shell :tangle host-shell :shebang "#!/usr/bin/env bash" :eval no :noweb yes
   «log»
   if [ "$LOG" ]
   then

@@ -237,9 +237,6 @@ This block is executed via ~Buffer settings~ & [[file:init.el]].
   «definitions»
 #+END_SRC
 
-#+RESULTS: startup
-: a-not-contains-p\?
-
 **** ANSI Colors in output
 #+BEGIN_SRC elisp
   (defun a-babel-ansi-color-apply ()

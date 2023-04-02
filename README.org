@@ -508,6 +508,8 @@ Network with port forwarding:
 #+end_src
 #+begin_src shell
   QEMU_OPTS=(
+      -vga std
+      -device VGA,edid=off,xres=1400,yres=1000
       -m "$QEMU_MEM"
       -cpu "$QEMU_CPU"
       -bios bios/ovmf-x64/OVMF-pure-efi.fd

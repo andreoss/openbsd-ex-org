@@ -1160,10 +1160,16 @@ Let's install & configure sudo with the same permissions as doas.
   doas fw_update -a
 #+end_src
 ** Disable com0 at boot
-#+name: disable-com0
-#+begin_src shell
-  doas perl -i.bak -nE 'print unless /com0/' /etc/boot.conf
-#+end_src
+   #+name: disable-com0
+   #+begin_src shell
+     doas perl -i.bak -nE 'print unless /com0/' /etc/boot.conf
+   #+end_src
+
+** Fix resolution for QEMU
+   #+begin_src shell
+     echo "machine gop 18" | doas tee -a /etc/boot.conf
+   #+end_src
+
 ** wscons
    #+begin_src shell
      echo 'keyboard.bell.volume=0'                       | doas tee     /etc/wsconsctl.conf

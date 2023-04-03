@@ -1329,6 +1329,11 @@ Now resolv.conf should contains-p local DNS server
 #+end_src
 
 ** Configure X11
+    #+call: pkg_add("xcape--")
+    #+call: pkg_add("terminus-font--centered_tilde")
+    #+call: pkg_add("unifont--")
+    #+call: pkg_add("amigafonts--")
+    #+call: pkg_add("rxvt-unicode--everything")
 *** Autologin
 #+begin_src shell :noweb yes
 echo "DisplayManager.*.autoLogin: «ref('user-name)»" | doas tee -a /etc/X11/xenodm/xenodm-config

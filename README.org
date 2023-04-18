@@ -742,7 +742,7 @@ Send ^D and press enter.
 
 Do not configure network interfaces.
 #+begin_src tcl
-  expect "Which network interface do you wish to configure?" {
+  expect "Network interface to configure?" {
       send "done\r"
   }
 #+end_src

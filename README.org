@@ -23,6 +23,7 @@ It's possible to build an entire system automatically by "publishing" this docum
 
 Supported OpenBSD versions:
 1. 7.2
+2. 7.3
 
 * Prerequisites
 The main requirements are QEMU, Expect & GNU Emacs.
@@ -322,9 +323,9 @@ The following table is to parameterize the system.
 | ssh-port      | Ssh Port                 | 7922                                |
 |---------------+--------------------------+-------------------------------------|
 | arch          | Architecure (only amd64) | amd64                               |
-| system-image  | Result image             | system69.img                        |
-| release       | Release                  | 7.2                                 |
-| install-image | Installation image       | install72.img                       |
+| release       | Release                  | 7.3                                 |
+| install-image | Installation image       | install73.img                       |
+| system-image  | Result image             | /dev/sdb                            |
 | image-format  | Result image format      | raw                                 |
 |               | (qcow2 or raw)           |                                     |
 | mirror        | Mirror                   | https://cdn.openbsd.org/pub/OpenBSD |
@@ -411,7 +412,7 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 #+end_src
 
 #+begin_src shell :dir (a-sudo)
-  losetup --partscan /dev/loop0 install72.img
+  losetup --partscan /dev/loop0 install73.img
 #+end_src
 
 #+begin_src shell :dir (a-sudo)

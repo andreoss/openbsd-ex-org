@@ -1239,8 +1239,7 @@ Install a package (see pkg_add(8)).
   doas cp /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js{,.back}
   ftp https://raw.githubusercontent.com/pyllyukko/user.js/master/user.js
   grep -v captive-portal user.js | doas tee -a /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js >/dev/null
-  ftp https://gist.githubusercontent.com/andreoss/91a0d21dc99bd9eae8bce5d573fb5a00/raw/64d0926caf60103efab55ea4cc4150d5d86b369a-ua.js
-  cat ua.js | doas tee -a /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js
+  curl https://gist.githubusercontent.com/andreoss/91a0d21dc99bd9eae8bce5d573fb5a00/raw/64d0926caf60103efab55ea4cc4150d5d86b369a-ua.js | doas tee -a /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js
   doas sed -i s/user_pref/pref/ /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js
   rm *.js
 #+end_src

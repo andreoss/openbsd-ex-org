@@ -1466,6 +1466,26 @@ ln -s ~/.config/inputrc ~/.inputrc
 
 #+call: pkg_add("coreutils")
 
+** Misc
+#+call: pkg_add("rsync--")
+
+#+call: pkg_add("p5-ack")
+
+** Media
+#+call: pkg_add("mpv--")
+
+#+call: pkg_add("yt-dlp--")
+
+#+call: pkg_add("vlc--")
+
+** Tools
+
+#+call: pkg_add("git--")
+#+call: pkg_add("cmake--")
+#+call: pkg_add("clang-tools-extra--")
+#+call: pkg_add("gmake--")
+#+call: pkg_add("ghc--")
+
 ** (Optional) Migrate current configuration
 
 #+call: pkg_add("rsync--")

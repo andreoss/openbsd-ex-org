@@ -1175,7 +1175,7 @@ Let's install & configure sudo with the same permissions as doas.
 
 ** Fix resolution for QEMU
    #+begin_src shell
-     echo "machine gop 18" | doas tee -a /etc/boot.conf
+     echo "machine gop 20" | doas tee -a /etc/boot.conf
    #+end_src
 
 ** wscons

@@ -993,11 +993,14 @@ Login as root via COM
 :END:
 *** Crypto-disk password
 #+begin_src shell :tangle type-password :shebang "#!/usr/bin/env expect"
-  «notimeout»
   «serial»
   set password [lindex $argv 0];
-  expect "Passphrase: " { send "$password\r" }
+  «timeout»
+  expect "boot>"        { send "set device sr0a\r"          }
   expect "boot>"        { send "\r"          }
+  expect "Passphrase: " { send "$password\r" }
+  expect "boot>"        { send "machine gop 20\r"      }
+  expect "boot>"        { send "boot\r"      }
 #+end_src
 
 *** Login via tty0

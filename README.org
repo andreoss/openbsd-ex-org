@@ -763,12 +763,14 @@ DNS Domain name.
 
 Root password.
 #+begin_src tcl
-  expect "Password for root account? (will not echo)" {
-      send «ref("root-password")»
+  expect "Password for root account?" {
+      sleep 1
+      send -h «ref("root-password")»
       send "\r"
   }
   expect "Password for root account? (again)" {
-      send «ref("root-password")»
+      sleep 1
+      send -h «ref("root-password")»
       send "\r"
   }
 #+end_src

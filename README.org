@@ -1129,14 +1129,15 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
   } | tee /etc/hostname.vio0
 #+end_src
 
-#+name: netstart
-#+begin_src shell :shebang (eval 'a-guest)
-  sh /etc/netstart
-#+end_src
 
 #+name: temporary-dns
 #+begin_src shell :shebang (eval 'a-guest)
   perl -i -pE 's/(nameserver) \s+ \S+/$1 8.8.8.8/x' /etc/resolv.conf
+#+end_src
+
+#+name: netstart
+#+begin_src shell :shebang (eval 'a-guest)
+  sh /etc/netstart
 #+end_src
 
 *** Add fingerprint to [[~/.ssh/known_hosts][known_hosts]]

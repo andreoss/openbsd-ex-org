@@ -1475,20 +1475,19 @@ which rsync
 
 *** SSH
 #+begin_src shell :dir ~ :noweb yes :session no
-rsync -ahvc -e 'ssh -p «ref('ssh-port)»' ~/.ssh localhost:
+rsync -Lahv -e 'ssh -p «ref('ssh-port)»' ~/.ssh localhost:
 #+end_src
 
 *** GPG
 
 #+begin_src shell :dir ~ :noweb yes :session no
-rsync -ahc -e 'ssh -p «ref('ssh-port)»' ~/.gnupg localhost:
+rsync -Lahv -e 'ssh -p «ref('ssh-port)»' ~/.gnupg localhost:
 #+end_src
 
 *** Pass
-#+call: pkg_add("pass-otp")
 
 #+begin_src shell :dir ~ :noweb yes :session no
-rsync -ahc -e 'ssh -p «ref('ssh-port)»' ~/.password-store localhost:
+rsync -Lahv -e 'ssh -p «ref('ssh-port)»' "$PASSWORD_STORE_DIR" localhost:
 #+end_src
 
 ** TODO Adblock with unbound

@@ -1166,6 +1166,10 @@ Let's install & configure sudo with the same permissions as doas.
 #+name: firmware
 #+begin_src shell
   doas fw_update -a
+  doas fw_update iwm
+  doas fw_update iwi
+  doas fw_update iwn
+  doas fw_update iwx
 #+end_src
 ** Disable com0 at boot
    #+name: disable-com0

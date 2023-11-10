@@ -447,7 +447,7 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 Wait until port is open:
 #+begin_src shell
   waitport() {
-      while ! nc -z localhost "${1:?no argument}" ; do true; done
+      while ! nc -z localhost "${1:?no argument}" ; do sleep 3; done
   }
 #+end_src
 #+begin_src shell

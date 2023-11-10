@@ -494,7 +494,7 @@ Serial device:
 #+begin_src shell
   QEMU_SERIAL=(
       -serial chardev:ser0
-      -chardev socket,id=ser0,server=on,wait=on,telnet=on,port=$QEMU_SER_PORT,host=localhost,ipv4=on,ipv6=off
+      -chardev socket,id=ser0,server=on,wait=off,telnet=on,port=$QEMU_SER_PORT,host=localhost,ipv4=on,ipv6=off
   )
 #+end_src
 Network with port forwarding:
@@ -504,6 +504,14 @@ Network with port forwarding:
       -device virtio-net,netdev=mn0
   )
 #+end_src
+
+#+begin_src shell
+  QEMU_SOUND=(
+      -audiodev pa,id=pa,server=unix:${XDG_RUNTIME_DIR}/pulse/native,out.stream-name=foobar,in.stream-name=foobar
+      -device intel-hda -device hda-duplex,audiodev=pa,mixer=off
+  )
+#+end_src
+
 #+begin_src shell
   QEMU_OPTS=(
       -vga std
@@ -517,6 +525,8 @@ Network with port forwarding:
   QEMU_OPTS+=("${QEMU_MONITOR[@]}")
   QEMU_OPTS+=("${QEMU_SERIAL[@]}")
   QEMU_OPTS+=("${QEMU_SYSTEM_DRIVE[@]}")
+  QEMU_OPTS+=("${QEMU_AUDIO[@]}")
+  QEMU_OPTS+=(-pidfile "$QEMU_PID" -daemonize)
   if [ "${USE_KEYDISK:-0}" -eq "1" ]
   then
       QEMU_OPTS+=("${QEMU_KEY_DRIVE[@]}")
@@ -525,20 +535,17 @@ Network with port forwarding:
   then
       QEMU_OPTS+=("${QEMU_INSTALL_DRIVE[@]}")
   fi
-  if [ "${USE_GRAPHIC:-0}" -eq "0" ]
-  then
-      QEMU_OPTS+=(-nographic)
-  fi
   case "${1:?no arg}" in
       start)
           [ -e "$QEMU_PID" ] && >&2 echo "Already running" && exit 1
-          (
-              "$QEMU_COMMAND" "${QEMU_OPTS[@]}" & disown
-              PID=$!
-              echo "$PID" > "$QEMU_PID"
-          ) &
+          "$QEMU_COMMAND" "${QEMU_OPTS[@]}"
           waitport "$QEMU_MON_PORT"
           waitport "$QEMU_SER_PORT"
+          while :
+          do
+              PID=$(cat < "$QEMU_PID")
+              kill -0 $PID && echo Running && break
+          done
           ;;
       status)
           if [ ! -e "$QEMU_PID" ]

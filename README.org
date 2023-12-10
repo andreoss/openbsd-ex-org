@@ -323,9 +323,9 @@ The following table is to parameterize the system.
 | ssh-port      | Ssh Port                 | 7922                                |
 |---------------+--------------------------+-------------------------------------|
 | arch          | Architecure (only amd64) | amd64                               |
-| release       | Release                  | 7.3                                 |
-| install-image | Installation image       | install73.img                       |
 | system-image  | Result image             | /dev/sdb                            |
+| release       | Release                  | 7.4                                 |
+| install-image | Installation image       | install74.img                       |
 | image-format  | Result image format      | raw                                 |
 |               | (qcow2 or raw)           |                                     |
 | mirror        | Mirror                   | https://cdn.openbsd.org/pub/OpenBSD |

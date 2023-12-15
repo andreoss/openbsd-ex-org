@@ -507,8 +507,7 @@ Network with port forwarding:
 
 #+begin_src shell
   QEMU_SOUND=(
-      -audiodev pa,id=pa,server=unix:${XDG_RUNTIME_DIR}/pulse/native,out.stream-name=foobar,in.stream-name=foobar
-      -device intel-hda -device hda-duplex,audiodev=pa,mixer=off
+      -audio pipewire,model=es1370,out.frequency=48000
   )
 #+end_src
 
@@ -525,7 +524,7 @@ Network with port forwarding:
   QEMU_OPTS+=("${QEMU_MONITOR[@]}")
   QEMU_OPTS+=("${QEMU_SERIAL[@]}")
   QEMU_OPTS+=("${QEMU_SYSTEM_DRIVE[@]}")
-  QEMU_OPTS+=("${QEMU_AUDIO[@]}")
+  QEMU_OPTS+=("${QEMU_SOUND[@]}")
   QEMU_OPTS+=(-pidfile "$QEMU_PID" -daemonize)
   if [ "${USE_KEYDISK:-0}" -eq "1" ]
   then
@@ -1210,6 +1209,12 @@ Let's install & configure sudo with the same permissions as doas.
    #+begin_src shell
      doas perl -i.bak -pE 's/(?<=rw)(?!,noatime)/,noatime/' /etc/fstab
      doas perl -i.bak -pE 's/(?<=rw)(?!,softdep)/,softdep/' /etc/fstab
+   #+end_src
+
+** Fix audio in QEMU
+   #+name:  sndiod
+   #+begin_src shell
+    doas rcctl set sndiod flags -b24000
    #+end_src
 
 * Configuration

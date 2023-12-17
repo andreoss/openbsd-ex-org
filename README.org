@@ -500,8 +500,8 @@ Serial device:
 Network with port forwarding:
 #+begin_src shell
   QEMU_NETWORK=(
-      -netdev user,id=mn0,hostfwd=tcp:127.0.0.1:«ref("ssh-port")»-:22
-      -device virtio-net,netdev=mn0
+      -netdev tap,id=mn0,br=virbr0,helper=$(type -p qemu-bridge-helper)
+      -device virtio-net,netdev=mn0,mac=de:ad:de:ad:de:01
   )
 #+end_src
 

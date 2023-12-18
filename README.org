@@ -1516,6 +1516,21 @@ rsync -Lahv -e 'ssh -p «ref('ssh-port)»' "$PASSWORD_STORE_DIR" localhost:
 
 ** TODO Adblock with unbound
 
+* Extra
+** Build Emacs
+ #+begin_src sh :results output
+   mkdir -p ~/src
+   cd ~/src
+   if [ ! -d emacs ]; then git clone https://github.com/emacs-mirror/emacs; fi
+   cd ~/src/emacs
+   git pull
+   gmake clean
+   AUTOCONF_VERSION=2.65 ./autogen.sh
+   CC=egcc MAKEINFO='/usr/local/bin/gmakeinfo' ./configure --prefix=$HOME/.local --with-json --without-x 
+   gmake
+   gmake install
+ #+end_src
+
 * COMMENT Buffer settings
 Same as [[file:init.el][init.el]]
 It's impossible to use tangling here.

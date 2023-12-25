@@ -185,6 +185,18 @@ Executed during boot of install.img
   exit
 #+end_src
 
+*** Reset VM
+Executed during boot of install.img
+#+begin_src shell  :tangle reset-vm :shebang "#!/usr/bin/env expect"
+  «monitor»
+  «timeout»
+  expect "(qemu)"
+  send "system_reset\r"
+  expect "(qemu)"
+  exit
+#+end_src
+
+
 *** Timeouts
 **** Disable timeout
 #+name: notimeout
@@ -451,7 +463,7 @@ Wait until port is open:
   }
 #+end_src
 #+begin_src shell
-  QEMU_MEM=512m
+  QEMU_MEM=4g
   QEMU_CPU=host
   QEMU_PID=.pid
   QEMU_COMMAND=qemu-kvm
@@ -598,14 +610,19 @@ This BIOS does not support CD, this is why we are using a USB image.
 Stop VM:
 #+NAME: stop-qemu
 #+begin_src shell
+  ./vm status
   ./vm stop
 #+end_src
 
+#+RESULTS: stop-qemu
+
 Start VM:
 #+NAME: start-qemu
-#+begin_src shell :prologue exec 0>&- 1>&- 2>&-
-  ./vm start
+#+begin_src shell :prologue exec 0>&- 1>&- 2>&- :dir "/sudo::"
+  env USE_GRAPHIC=1 USE_INSTALL=0 ./vm start
 #+end_src
+
+#+RESULTS: start-qemu
 
 #+NAME: boot-install
 #+begin_src shell :post assert!(*this*, '(a-contains-p? "switching console to com0" block))
@@ -1005,7 +1022,7 @@ Login as root via COM
   expect "boot>"        { send "set device sr0a\r"          }
   expect "boot>"        { send "\r"          }
   expect "Passphrase: " { send "$password\r" }
-  expect "boot>"        { send "machine gop 20\r"      }
+  expect "boot>"        { send "machine gop 0\r"      }
   expect "boot>"        { send "boot\r"      }
 #+end_src
 

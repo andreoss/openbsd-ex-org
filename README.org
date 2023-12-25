@@ -162,6 +162,14 @@ Clean up this document from all /result/ blocks.
   log_user 1
 #+end_src
 
+*** Connect to monitor port (via telnet).
+#+name: monitor
+#+begin_src tcl
+  log_user 0
+  spawn telnet localhost «ref('monitor-port)»
+  log_user 1
+#+end_src
+
 #+name: expect-prompt
 #+begin_src tcl
   expect -re {(?n)(?:[a-z]+)?[#]\s}
@@ -478,8 +486,8 @@ QEMU arguments:
 System drive:
 #+begin_src shell
   QEMU_SYSTEM_DRIVE=(
-      -device scsi-hd,drive=hd0
-      -drive file=«ref("system-image")»,media=disk,snapshot=off,if=none,id=hd0,format=«ref("image-format")»
+    -device scsi-hd,drive=hd0
+    -drive file=«ref("system-image")»,media=disk,snapshot=off,if=none,id=hd0,format=«ref("image-format")»
   )
 #+end_src
 Installation drive:
@@ -513,7 +521,7 @@ Network with port forwarding:
 #+begin_src shell
   QEMU_NETWORK=(
       -netdev tap,id=mn0,br=virbr0,helper=$(type -p qemu-bridge-helper)
-      -device virtio-net,netdev=mn0,mac=de:ad:de:ad:de:01
+      -device virtio-net,netdev=mn0,mac=00:00:00:00:00:00
   )
 #+end_src
 
@@ -538,6 +546,21 @@ Network with port forwarding:
   QEMU_OPTS+=("${QEMU_SYSTEM_DRIVE[@]}")
   QEMU_OPTS+=("${QEMU_SOUND[@]}")
   QEMU_OPTS+=(-pidfile "$QEMU_PID" -daemonize)
+  __status() {
+          if [ ! -e "$QEMU_PID" ]
+          then
+              >&2 echo "Not running"
+              exit 1
+          fi
+          PID="$(< "$QEMU_PID")"
+          if kill -0 "$PID" >/dev/null 2>/dev/null
+          then
+              >&2 echo "Running: $PID"
+          else
+              >&2 echo "Stopped: $PID"
+              exit 1
+          fi
+  }
   if [ "${USE_KEYDISK:-0}" -eq "1" ]
   then
       QEMU_OPTS+=("${QEMU_KEY_DRIVE[@]}")
@@ -559,19 +582,11 @@ Network with port forwarding:
           done
           ;;
       status)
-          if [ ! -e "$QEMU_PID" ]
-          then
-              >&2 echo "Not running"
-              exit 1
-          fi
-          PID="$(< "$QEMU_PID")"
-          if kill -0 "$PID" >/dev/null 2>/dev/null
-          then
-              >&2 echo "Running: $PID"
-          else
-              >&2 echo "Stopped: $PID"
-              exit 1
-          fi
+          __status
+          ;;
+      reset)
+          __status
+          ./reset-vm
           ;;
       stop)
           [ -e "$QEMU_PID" ] && xargs kill < "$QEMU_PID"

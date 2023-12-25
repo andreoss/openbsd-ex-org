@@ -162,6 +162,14 @@ Clean up this document from all /result/ blocks.
   log_user 1
 #+end_src
 
+*** Connect to monitor port (via telnet).
+#+name: monitor
+#+begin_src tcl
+  log_user 0
+  spawn telnet localhost «ref('monitor-port)»
+  log_user 1
+#+end_src
+
 #+name: expect-prompt
 #+begin_src tcl
   expect -re {(?n)(?:[a-z]+)?[#]\s}
@@ -184,6 +192,18 @@ Executed during boot of install.img
   expect "\r"
   exit
 #+end_src
+
+*** Reset VM
+Executed during boot of install.img
+#+begin_src shell  :tangle reset-vm :shebang "#!/usr/bin/env expect"
+  «monitor»
+  «timeout»
+  expect "(qemu)"
+  send "system_reset\r"
+  expect "(qemu)"
+  exit
+#+end_src
+
 
 *** Timeouts
 **** Disable timeout
@@ -323,9 +343,9 @@ The following table is to parameterize the system.
 | ssh-port      | Ssh Port                 | 7922                                |
 |---------------+--------------------------+-------------------------------------|
 | arch          | Architecure (only amd64) | amd64                               |
-| release       | Release                  | 7.3                                 |
-| install-image | Installation image       | install73.img                       |
 | system-image  | Result image             | /dev/sdb                            |
+| release       | Release                  | 7.4                                 |
+| install-image | Installation image       | install74.img                       |
 | image-format  | Result image format      | raw                                 |
 |               | (qcow2 or raw)           |                                     |
 | mirror        | Mirror                   | https://cdn.openbsd.org/pub/OpenBSD |
@@ -447,11 +467,11 @@ For example, on NixOS it can be enabled like this in [[/etc/nixos/boot.nix][boot
 Wait until port is open:
 #+begin_src shell
   waitport() {
-      while ! nc -z localhost "${1:?no argument}" ; do true; done
+      while ! nc -z localhost "${1:?no argument}" ; do sleep 3; done
   }
 #+end_src
 #+begin_src shell
-  QEMU_MEM=512m
+  QEMU_MEM=4g
   QEMU_CPU=host
   QEMU_PID=.pid
   QEMU_COMMAND=qemu-kvm
@@ -466,8 +486,8 @@ QEMU arguments:
 System drive:
 #+begin_src shell
   QEMU_SYSTEM_DRIVE=(
-      -device scsi-hd,drive=hd0
-      -drive file=«ref("system-image")»,media=disk,snapshot=off,if=none,id=hd0,format=«ref("image-format")»
+    -device scsi-hd,drive=hd0
+    -drive file=«ref("system-image")»,media=disk,snapshot=off,if=none,id=hd0,format=«ref("image-format")»
   )
 #+end_src
 Installation drive:
@@ -494,20 +514,29 @@ Serial device:
 #+begin_src shell
   QEMU_SERIAL=(
       -serial chardev:ser0
-      -chardev socket,id=ser0,server=on,wait=on,telnet=on,port=$QEMU_SER_PORT,host=localhost,ipv4=on,ipv6=off
+      -chardev socket,id=ser0,server=on,wait=off,telnet=on,port=$QEMU_SER_PORT,host=localhost,ipv4=on,ipv6=off
   )
 #+end_src
 Network with port forwarding:
 #+begin_src shell
   QEMU_NETWORK=(
-      -netdev user,id=mn0,hostfwd=tcp:127.0.0.1:«ref("ssh-port")»-:22
-      -device virtio-net,netdev=mn0
+      -netdev tap,id=mn0,br=virbr0,helper=$(type -p qemu-bridge-helper)
+      -device virtio-net,netdev=mn0,mac=00:00:00:00:00:00
   )
 #+end_src
+
+#+begin_src shell
+  QEMU_SOUND=(
+      -audio pipewire,model=es1370,out.frequency=48000
+  )
+#+end_src
+
 #+begin_src shell
   QEMU_OPTS=(
-      -vga std
-      -device VGA,edid=off,xres=1400,yres=1000
+      -vnc :0
+      -smp 2
+      -cpu haswell
+      -vga cirrus
       -m "$QEMU_MEM"
       -cpu "$QEMU_CPU"
       -bios bios/ovmf-x64/OVMF-pure-efi.fd
@@ -517,30 +546,9 @@ Network with port forwarding:
   QEMU_OPTS+=("${QEMU_MONITOR[@]}")
   QEMU_OPTS+=("${QEMU_SERIAL[@]}")
   QEMU_OPTS+=("${QEMU_SYSTEM_DRIVE[@]}")
-  if [ "${USE_KEYDISK:-0}" -eq "1" ]
-  then
-      QEMU_OPTS+=("${QEMU_KEY_DRIVE[@]}")
-  fi
-  if [ "${USE_INSTALL:-1}" -eq "1" ]
-  then
-      QEMU_OPTS+=("${QEMU_INSTALL_DRIVE[@]}")
-  fi
-  if [ "${USE_GRAPHIC:-0}" -eq "0" ]
-  then
-      QEMU_OPTS+=(-nographic)
-  fi
-  case "${1:?no arg}" in
-      start)
-          [ -e "$QEMU_PID" ] && >&2 echo "Already running" && exit 1
-          (
-              "$QEMU_COMMAND" "${QEMU_OPTS[@]}" & disown
-              PID=$!
-              echo "$PID" > "$QEMU_PID"
-          ) &
-          waitport "$QEMU_MON_PORT"
-          waitport "$QEMU_SER_PORT"
-          ;;
-      status)
+  QEMU_OPTS+=("${QEMU_SOUND[@]}")
+  QEMU_OPTS+=(-pidfile "$QEMU_PID" -daemonize)
+  __status() {
           if [ ! -e "$QEMU_PID" ]
           then
               >&2 echo "Not running"
@@ -554,6 +562,33 @@ Network with port forwarding:
               >&2 echo "Stopped: $PID"
               exit 1
           fi
+  }
+  if [ "${USE_KEYDISK:-0}" -eq "1" ]
+  then
+      QEMU_OPTS+=("${QEMU_KEY_DRIVE[@]}")
+  fi
+  if [ "${USE_INSTALL:-1}" -eq "1" ]
+  then
+      QEMU_OPTS+=("${QEMU_INSTALL_DRIVE[@]}")
+  fi
+  case "${1:?no arg}" in
+      start)
+          [ -e "$QEMU_PID" ] && >&2 echo "Already running" && exit 1
+          "$QEMU_COMMAND" "${QEMU_OPTS[@]}"
+          waitport "$QEMU_MON_PORT"
+          waitport "$QEMU_SER_PORT"
+          while :
+          do
+              PID=$(cat < "$QEMU_PID")
+              kill -0 $PID && echo Running && break
+          done
+          ;;
+      status)
+          __status
+          ;;
+      reset)
+          __status
+          ./reset-vm
           ;;
       stop)
           [ -e "$QEMU_PID" ] && xargs kill < "$QEMU_PID"
@@ -592,14 +627,19 @@ This BIOS does not support CD, this is why we are using a USB image.
 Stop VM:
 #+NAME: stop-qemu
 #+begin_src shell
+  ./vm status
   ./vm stop
 #+end_src
 
+#+RESULTS: stop-qemu
+
 Start VM:
 #+NAME: start-qemu
-#+begin_src shell :prologue exec 0>&- 1>&- 2>&-
-  ./vm start
+#+begin_src shell :prologue exec 0>&- 1>&- 2>&- :dir "/sudo::"
+  env USE_GRAPHIC=1 USE_INSTALL=0 ./vm start
 #+end_src
+
+#+RESULTS: start-qemu
 
 #+NAME: boot-install
 #+begin_src shell :post assert!(*this*, '(a-contains-p? "switching console to com0" block))
@@ -999,7 +1039,7 @@ Login as root via COM
   expect "boot>"        { send "set device sr0a\r"          }
   expect "boot>"        { send "\r"          }
   expect "Passphrase: " { send "$password\r" }
-  expect "boot>"        { send "machine gop 20\r"      }
+  expect "boot>"        { send "machine gop 0\r"      }
   expect "boot>"        { send "boot\r"      }
 #+end_src
 
@@ -1203,6 +1243,12 @@ Let's install & configure sudo with the same permissions as doas.
    #+begin_src shell
      doas perl -i.bak -pE 's/(?<=rw)(?!,noatime)/,noatime/' /etc/fstab
      doas perl -i.bak -pE 's/(?<=rw)(?!,softdep)/,softdep/' /etc/fstab
+   #+end_src
+
+** Fix audio in QEMU
+   #+name:  sndiod
+   #+begin_src shell
+    doas rcctl set sndiod flags -b24000
    #+end_src
 
 * Configuration

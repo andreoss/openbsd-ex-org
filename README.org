@@ -1572,7 +1572,7 @@ rsync -Lahv -e 'ssh -p «ref('ssh-port)»' "$PASSWORD_STORE_DIR" localhost:
    git pull
    gmake clean
    AUTOCONF_VERSION=2.65 ./autogen.sh
-   CC=egcc MAKEINFO='/usr/local/bin/gmakeinfo' ./configure --prefix=$HOME/.local --with-json --without-x 
+   CC=egcc MAKEINFO='/usr/local/bin/gmakeinfo' ./configure --prefix=$HOME/.local --with-json --without-x
    gmake
    gmake install
  #+end_src

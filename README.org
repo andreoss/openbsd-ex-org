@@ -1518,15 +1518,21 @@ rsync -Lahv -e 'ssh -p «ref('ssh-port)»' "$PASSWORD_STORE_DIR" localhost:
 
 * Extra
 ** Build Emacs
- #+begin_src sh :results output
+ #+begin_src sh :results output :tangle build-emacs.sh
+   #!/bin/sh
    mkdir -p ~/src
    cd ~/src
    if [ ! -d emacs ]; then git clone https://github.com/emacs-mirror/emacs; fi
    cd ~/src/emacs
    git pull
    gmake clean
-   AUTOCONF_VERSION=2.65 ./autogen.sh
-   CC=egcc MAKEINFO='/usr/local/bin/gmakeinfo' ./configure --prefix=$HOME/.local --with-json --without-x 
+   AUTOCONF_VERSION=2.65
+   CC=egcc
+   MAKEINFO='/usr/local/bin/gmakeinfo'
+   export AUTOCONF_VERSION MAKEINFO CC
+   ./autogen.sh
+   ./configure --prefix=$HOME/.local --with-json --with-x=lucid
+   gmake bootstrap
    gmake
    gmake install
  #+end_src

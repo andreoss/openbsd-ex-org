@@ -1286,12 +1286,14 @@ Install a package (see pkg_add(8)).
 #+call: pkg_add("youtube-dl")
 
 #+begin_src shell
-  doas cp /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js{,.back}
-  ftp https://raw.githubusercontent.com/pyllyukko/user.js/master/user.js
-  grep -v captive-portal user.js | doas tee -a /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js >/dev/null
-  curl https://gist.githubusercontent.com/andreoss/91a0d21dc99bd9eae8bce5d573fb5a00/raw/64d0926caf60103efab55ea4cc4150d5d86b369a-ua.js | doas tee -a /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js
-  doas sed -i s/user_pref/pref/ /usr/local/lib/firefox/browser/defaults/preferences/all-openbsd.js
-  rm *.js
+  UA_FIX=https://gist.githubusercontent.com/andreoss/91a0d21dc99bd9eae8bce5d573fb5a00/raw/64d0926caf60103efab55ea4cc4150d5d86b369a/ua.js
+  SER_JS=https://raw.githubusercontent.com/pyllyukko/user.js/master/user.js
+  FIREFOX_BASE=/usr/local/lib/firefox-esr
+  doas cp "$FIREFOX_BASE"/browser/defaults/preferences/all-openbsd.js{,.back}
+  curl "$USER_JS" | grep -v captive-portal | \
+      doas tee -a "$FIREFOX_BASE"/browser/defaults/preferences/all-openbsd.js >/dev/null
+  curl "$UA_FIX" | doas tee -a "$FIREFOX_BASE"/browser/defaults/preferences/all-openbsd.js
+  doas sed -i s/user_pref/pref/ "$FIREFOX_BASE"/browser/defaults/preferences/all-openbsd.js
 #+end_src
 
 ** Switch to prefered shell (i.e Bash)

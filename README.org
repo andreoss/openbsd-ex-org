@@ -521,7 +521,7 @@ Network with port forwarding:
 #+begin_src shell
   QEMU_NETWORK=(
       -netdev tap,id=mn0,br=virbr0,helper=$(type -p qemu-bridge-helper)
-      -device virtio-net,netdev=mn0,mac=00:00:00:00:00:00
+      -device virtio-net,netdev=mn0,mac=00:00:00:00:00:01
   )
 #+end_src
 

@@ -195,11 +195,12 @@ Executed during boot of install.img
 
 *** Reset VM
 Executed during boot of install.img
-#+begin_src shell  :tangle reset-vm :shebang "#!/usr/bin/env expect"
+#+begin_src shell  :tangle qemu-command :shebang "#!/usr/bin/env expect"
   «monitor»
   «timeout»
+  set command [lindex $argv 0];
   expect "(qemu)"
-  send "system_reset\r"
+  send "$command\r"
   expect "(qemu)"
   exit
 #+end_src
@@ -534,9 +535,10 @@ Network with port forwarding:
 #+begin_src shell
   QEMU_OPTS=(
       -vnc :0
-      -smp 2
-      -cpu haswell
-      -vga cirrus
+      -smp 3
+      -cpu phenom
+      -display none
+      -vga virtio
       -m "$QEMU_MEM"
       -cpu "$QEMU_CPU"
       -bios bios/ovmf-x64/OVMF-pure-efi.fd
@@ -548,6 +550,9 @@ Network with port forwarding:
   QEMU_OPTS+=("${QEMU_SYSTEM_DRIVE[@]}")
   QEMU_OPTS+=("${QEMU_SOUND[@]}")
   QEMU_OPTS+=(-pidfile "$QEMU_PID" -daemonize)
+  __boot() {
+     ./type-password «pass-show("bioctl")»
+  }
   __status() {
           if [ ! -e "$QEMU_PID" ]
           then
@@ -563,6 +568,17 @@ Network with port forwarding:
               exit 1
           fi
   }
+  __start() {
+          [ -e "$QEMU_PID" ] && >&2 echo "Already running" && exit 1
+          "$QEMU_COMMAND" "${QEMU_OPTS[@]}"
+          waitport "$QEMU_MON_PORT"
+          waitport "$QEMU_SER_PORT"
+          while :
+          do
+              PID=$(cat < "$QEMU_PID")
+              kill -0 $PID && echo Running && break
+          done
+  }
   if [ "${USE_KEYDISK:-0}" -eq "1" ]
   then
       QEMU_OPTS+=("${QEMU_KEY_DRIVE[@]}")
@@ -573,22 +589,19 @@ Network with port forwarding:
   fi
   case "${1:?no arg}" in
       start)
-          [ -e "$QEMU_PID" ] && >&2 echo "Already running" && exit 1
-          "$QEMU_COMMAND" "${QEMU_OPTS[@]}"
-          waitport "$QEMU_MON_PORT"
-          waitport "$QEMU_SER_PORT"
-          while :
-          do
-              PID=$(cat < "$QEMU_PID")
-              kill -0 $PID && echo Running && break
-          done
+          __start
+          __boot
           ;;
       status)
           __status
           ;;
       reset)
           __status
-          ./reset-vm
+          ./qemu-command system_reset
+          ;;
+      poweroff)
+          __status
+          ./qemu-command system_powerdown
           ;;
       stop)
           [ -e "$QEMU_PID" ] && xargs kill < "$QEMU_PID"
@@ -1039,8 +1052,9 @@ Login as root via COM
   expect "boot>"        { send "set device sr0a\r"          }
   expect "boot>"        { send "\r"          }
   expect "Passphrase: " { send "$password\r" }
-  expect "boot>"        { send "machine gop 0\r"      }
-  expect "boot>"        { send "boot\r"      }
+  expect "boot>"        { send "machine gop 15\r"      }
+  expect "boot>"        { send "boot /bsd\r"      }
+  expect "booting"
 #+end_src
 
 *** Login via tty0
@@ -1219,7 +1233,7 @@ Let's install & configure sudo with the same permissions as doas.
 
 ** Fix resolution for QEMU
    #+begin_src shell
-     echo "machine gop 20" | doas tee -a /etc/boot.conf
+     echo "machine gop 15" | doas tee -a /etc/boot.conf
    #+end_src
 
 ** wscons

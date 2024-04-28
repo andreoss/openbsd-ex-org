@@ -1302,7 +1302,7 @@ Install a package (see pkg_add(8)).
 #+begin_src shell
   UA_FIX=https://gist.githubusercontent.com/andreoss/91a0d21dc99bd9eae8bce5d573fb5a00/raw/64d0926caf60103efab55ea4cc4150d5d86b369a/ua.js
   SER_JS=https://raw.githubusercontent.com/pyllyukko/user.js/master/user.js
-  FIREFOX_BASE=/usr/local/lib/firefox-esr
+  FIREFOX_BASE=/usr/local/lib/firefox
   doas cp "$FIREFOX_BASE"/browser/defaults/preferences/all-openbsd.js{,.back}
   curl "$USER_JS" | grep -v captive-portal | \
       doas tee -a "$FIREFOX_BASE"/browser/defaults/preferences/all-openbsd.js >/dev/null

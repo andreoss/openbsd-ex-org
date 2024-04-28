@@ -1263,6 +1263,7 @@ Let's install & configure sudo with the same permissions as doas.
    #+name:  sndiod
    #+begin_src shell
     doas rcctl set sndiod flags -b24000
+    doas rcctl restart sndiod
    #+end_src
 
 * Configuration

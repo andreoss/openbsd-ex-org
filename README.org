@@ -1134,6 +1134,12 @@ Change default parameters of [[https://man.openbsd.org/sshd][sshd(8)]]
   cp /etc/ssh/sshd_config{,.orig}
 #+end_src
 
+** Disable motd
+#+begin_src shell :shebang (eval 'a-guest)
+  rm /etc/motd
+  ln -s /dev/null /etc/motd
+#+end_src
+
 *** Disable banner
 #+name: configure-sshd-1
 #+begin_src shell :shebang (eval 'a-guest)
